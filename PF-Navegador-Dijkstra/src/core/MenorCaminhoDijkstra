@@ -1,11 +1,11 @@
 import java.util.Scanner;
 
-public class DijkstraGrafo {
+public class MenorCaminhoDijkstra {
 
     private static final int MAX_VERTICES = 18;
     private static final double INF = 1e9;
 
-    // ALTERAÇÃO: Matriz e Array agora usam as classes externas unificadas
+    // Matriz e Array usando as classes externas unificadas Vertice e Aresta
     private static double[][] matrizAdj = new double[MAX_VERTICES][MAX_VERTICES];
     private static Vertice[] vertices = new Vertice[MAX_VERTICES];
     private static int totalVertices;
@@ -15,7 +15,7 @@ public class DijkstraGrafo {
         return Math.sqrt(Math.pow(x0 - x1, 2.0) + Math.pow(y0 - y1, 2.0));
     }
 
-    // ALTERAÇÃO: Assinatura do método adaptada para as classes externas
+    // Método adaptado para as classes externas
     public static void construirGrafo(Vertice[] nos, Aresta[] arestas) {
         for (int i = 0; i < totalVertices; i++) {
             for (int j = 0; j < totalVertices; j++) {
@@ -90,7 +90,7 @@ public class DijkstraGrafo {
     public static void main(String[] args) {
         int origem, destino;
 
-        // ALTERAÇÃO: Instanciação usando a classe externa Vertice
+        // Instanciação usando a classe externa Vertice
         Vertice[] V = {
             new Vertice(0, 149, 200),
             new Vertice(1, 225, 200),
@@ -118,7 +118,7 @@ public class DijkstraGrafo {
             vertices[i] = V[i];
         }
 
-        // ALTERAÇÃO: Instanciação usando a classe externa Aresta
+        // Instanciação usando a classe externa Aresta
         Aresta[] A = {
             new Aresta(0, 2, 0),   new Aresta(2, 3, 0),   new Aresta(3, 4, 0),
             new Aresta(4, 5, 0),   new Aresta(5, 6, 0),   new Aresta(6, 7, 0),
