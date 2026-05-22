@@ -1,11 +1,23 @@
 public class Aresta {
-    // MAX_WAY_NODES definido como constante estática na própria classe Aresta
     public static final int MAX_WAY_NODES = 100;
 
-    public int[] node_ids = new int[MAX_WAY_NODES]; // Índices internos dos nós
+    // Campos para o OsmParser (Vias completas)
+    public int[] node_ids = new int[MAX_WAY_NODES]; 
     public int count = 0;
 
-    // Construtor padrão (vazio) para inicialização do array
+    // Novos campos para o Dijkstra (Arestas diretas)
+    public int orig;
+    public int dest;
+    public double dist;
+
+    // Construtor padrão
     public Aresta() {
+    }
+
+    // Novo construtor para o Dijkstra
+    public Aresta(int orig, int dest, double dist) {
+        this.orig = orig;
+        this.dest = dest;
+        this.dist = dist;
     }
 }
