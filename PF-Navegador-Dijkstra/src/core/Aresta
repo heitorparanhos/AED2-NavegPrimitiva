@@ -1,1 +1,11 @@
+public class Aresta {
+    // MAX_WAY_NODES definido como constante estática na própria classe Aresta
+    public static final int MAX_WAY_NODES = 100;
 
+    public int[] node_ids = new int[MAX_WAY_NODES]; // Índices internos dos nós
+    public int count = 0;
+
+    // Construtor padrão (vazio) para inicialização do array
+    public Aresta() {
+    }
+}
