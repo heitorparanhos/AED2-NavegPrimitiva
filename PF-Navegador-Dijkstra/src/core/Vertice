@@ -4,17 +4,15 @@ public class Vertice {
     public double lon;
     public double x;
     public double y;
-    public int id_interno; // de 0 a n-1
+    public int id_interno; 
 
-    // Construtor padrão (vazio) para manter a compatibilidade com a inicialização do array
     public Vertice() {
     }
 
-    // Construtor auxiliar opcional, caso queira instanciar passando parâmetros diretamente
-    public Vertice(long id_original, double lat, double lon, int id_interno) {
-        this.id_original = id_original;
-        this.lat = lat;
-        this.lon = lon;
+    // Construtor usado pelo Dijkstra (id, x, y)
+    public Vertice(int id_interno, double x, double y) {
         this.id_interno = id_interno;
+        this.x = x;
+        this.y = y;
     }
 }
