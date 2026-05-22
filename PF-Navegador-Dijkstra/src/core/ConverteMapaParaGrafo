@@ -6,7 +6,6 @@ import java.io.IOException;
 
 public class OsmParser {
 
-    // Constantes equivalents aos #define e globais do C
     private static final int MAX_NODES = 10000;
     private static final int MAX_WAYS = 5000;
     private static final int MAX_WAY_NODES = 100;
@@ -16,50 +15,43 @@ public class OsmParser {
     private static final double PI = Math.PI;
 
     // Parâmetros da zona UTM 23S
-    private static final double a = 6378137.0;        // Semi-eixo maior WGS84
-    private static final double f = 1.0 / 298.257223563; // Achatamento
+    private static final double a = 6378137.0;        
+    private static final double f = 1.0 / 298.257223563; 
     private static final double k0 = 0.9996;
-    private static final double lon0_deg = -45.0;     // longitude central da zona 23S
+    private static final double lon0_deg = -45.0;     
 
-    // Structs convertidas em classes estáticas internas
-    public static class Node {
-        long id_original;
-        double lat;
-        double lon;
-        double x;
-        double y;
-        int id_interno; // de 0 a n-1
-    }
-
+    // A classe interna Way continua aqui por ser exclusiva da estrutura de vias do OsmParser
     public static class Way {
-        int[] node_ids = new int[MAX_WAY_NODES]; // Índices internos dos nós
+        int[] node_ids = new int[MAX_WAY_NODES]; 
         int count = 0;
     }
 
-    // Arrays globais mantidos para simular o comportamento do C
-    private static Node[] nodes = new Node[MAX_NODES];
+    // ALTERAÇÃO: O array agora usa a classe externa Vertice
+    private static Vertice[] nodes = new Vertice[MAX_NODES];
     private static int total_nodes = 0;
 
     private static Way[] ways = new Way[MAX_WAYS];
     private static int total_ways = 0;
 
-    // Inicializa os arrays de objetos para evitar NullPointerException
+    // Inicializa os arrays de objetos
     static {
-        for (int i = 0; i < MAX_NODES; i++) nodes[i] = new Node();
-        for (int i = 0; i < MAX_WAYS; i++) ways[i] = new Way();
+        for (int i = 0; i < MAX_NODES; i++) {
+            nodes[i] = new Vertice(); // Instancia a classe externa Vertice
+        }
+        for (int i = 0; i < MAX_WAYS; i++) {
+            ways[i] = new Way();
+        }
     }
 
-    // Procura o índice interno de um id original
     private static int getNodeIndex(long id) {
         for (int i = 0; i < total_nodes; i++) {
             if (nodes[i].id_original == id) {
                 return nodes[i].id_interno;
             }
         }
-        return -1; // não encontrado
+        return -1; 
     }
 
-    // Extrai valor de atributo usando Expressões Regulares ou manipulação de String do Java
     private static String extractAttr(String line, String key) {
         String searchKey = key + "\"";
         int startPos = line.indexOf(searchKey);
@@ -73,34 +65,32 @@ public class OsmParser {
         return "";
     }
 
-    private static void reduzirEscala(Node[] pontos, int n, int redutor) {
+    // ALTERAÇÃO: Parâmetro alterado para receber o array de Vertice
+    private static void reduzirEscala(Vertice[] pontos, int n, int redutor) {
         double minX = pontos[0].x, minY = pontos[0].y;
         for (int i = 1; i < n; i++) {
             if (pontos[i].x < minX) minX = pontos[i].x;
             if (pontos[i].y < minY) minY = pontos[i].y;
         }
         for (int i = 0; i < n; i++) {
-            pontos[i].x = (pontos[i].x - minX) / redutor; // reduzir escala
+            pontos[i].x = (pontos[i].x - minX) / redutor; 
             pontos[i].y = (pontos[i].y - minY) / redutor;
         }
     }
 
     public static void parseOsm(String filename) {
-        // Equivalente ao RAt e Left do C para gerar o nome do arquivo de saída
         int posPonto = filename.lastIndexOf(".");
         String arqSaida = (posPonto != -1 ? filename.substring(0, posPonto) : filename) + ".poly";
 
         int inside_way = 0;
         Way current_way = new Way();
 
-        // Bloco try-with-resources que abre e fecha os arquivos automaticamente
         try (BufferedReader br = new BufferedReader(new FileReader(filename));
              BufferedWriter bw = new BufferedWriter(new FileWriter(arqSaida))) {
 
             String line;
             while ((line = br.readLine()) != null) {
                 
-                // Verifica se é um nó
                 if (line.contains("<node") && line.contains("lat=") && line.contains("lon=")) {
                     String id_str = extractAttr(line, "id=");
                     String lat_str = extractAttr(line, "lat=");
@@ -110,20 +100,14 @@ public class OsmParser {
                         nodes[total_nodes].id_original = Long.parseLong(id_str);
                         nodes[total_nodes].lat = Double.parseDouble(lat_str);
                         nodes[total_nodes].lon = Double.parseDouble(lon_str);
-                        
-                        // Nota: O seu código original em C não preenche as variáveis 'x' e 'y'.
-                        // Se você precisar delas no 'reduzirEscala', lembre-se de populá-las aqui.
-                        
                         nodes[total_nodes].id_interno = total_nodes;
                         total_nodes++;
                     }
                 }
-                // Verifica se é o início de uma via
                 else if (line.contains("<way")) {
                     inside_way = 1;
-                    current_way = new Way(); // Reseta a via atual
+                    current_way = new Way(); 
                 }
-                // Verifica se é um nó dentro de uma via
                 else if (inside_way == 1 && line.contains("<nd")) {
                     String ref_str = extractAttr(line, "ref=");
                     long ref_id = Long.parseLong(ref_str);
@@ -132,11 +116,9 @@ public class OsmParser {
                         current_way.node_ids[current_way.count++] = index;
                     }
                 }
-                // Fim de uma via
                 else if (inside_way == 1 && line.contains("</way>")) {
                     inside_way = 0;
                     if (current_way.count > 1 && total_ways < MAX_WAYS) {
-                        // Copia profunda manual para simular atribuição de struct do C
                         Way copy = new Way();
                         copy.count = current_way.count;
                         System.arraycopy(current_way.node_ids, 0, copy.node_ids, 0, current_way.count);
@@ -145,10 +127,8 @@ public class OsmParser {
                 }
             }
 
-            // Reduzir escala
             reduzirEscala(nodes, total_nodes, 2);
 
-            // Obter máximo valor da coordenada Y e fazer rotação vertical
             double maxY = nodes[0].y;
             for (int i = 1; i < total_nodes; i++) {
                 if (nodes[i].y > maxY) {
@@ -160,13 +140,11 @@ public class OsmParser {
                 nodes[i].y = maxY - nodes[i].y;
             }
 
-            // Imprime nós no arquivo
             bw.write(String.format("%d\t%d\t%d\t%d\n", total_nodes, 2, 0, 1));
             for (int i = 0; i < total_nodes; i++) {
                 bw.write(String.format("%d\t%f\t%f\n", nodes[i].id_interno, nodes[i].lat, nodes[i].lon));
             }
 
-            // Contabiliza arestas
             int numID = 0;
             for (int i = 0; i < total_ways; i++) {
                 for (int j = 0; j < ways[i].count - 1; j++) {
@@ -175,7 +153,6 @@ public class OsmParser {
             }
             bw.write(String.format("%d\t%d\n", numID, 1));
 
-            // Imprime arestas
             numID = 0;
             for (int i = 0; i < total_ways; i++) {
                 for (int j = 0; j < ways[i].count - 1; j++) {
@@ -194,17 +171,10 @@ public class OsmParser {
     }
 
     public static void main(String[] args) {
-        if (args.length != 2) {
-            // Mantive o comportamento do C esperando 2 argumentos (o comando em si não conta em Java, mas para manter a lógica do C alterei para 1)
-            // IMPORTANTE: Em Java, o args[0] JÁ É O PRIMEIRO ARGUMENTO, não o nome do executável.
-            // Ajustei abaixo para verificar se possui 1 argumento, que é o esperado para rodar o script.
-        }
-        
         if (args.length != 1) {
             System.err.println("Uso: java OsmParser arquivo.osm");
             System.exit(1);
         }
-        
         parseOsm(args[0]);
     }
 }
