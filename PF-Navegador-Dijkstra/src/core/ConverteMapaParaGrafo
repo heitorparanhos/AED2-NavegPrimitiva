@@ -8,7 +8,6 @@ public class OsmParser {
 
     private static final int MAX_NODES = 10000;
     private static final int MAX_WAYS = 5000;
-    private static final int MAX_WAY_NODES = 100;
 
     private static final int MAX_VERTICES = 10000;
     private static final int INFINITO = 1000000000;
@@ -20,26 +19,20 @@ public class OsmParser {
     private static final double k0 = 0.9996;
     private static final double lon0_deg = -45.0;     
 
-    // A classe interna Way continua aqui por ser exclusiva da estrutura de vias do OsmParser
-    public static class Way {
-        int[] node_ids = new int[MAX_WAY_NODES]; 
-        int count = 0;
-    }
-
-    // ALTERAÇÃO: O array agora usa a classe externa Vertice
+    // Arrays globais utilizando as classes externas Vertice e Aresta
     private static Vertice[] nodes = new Vertice[MAX_NODES];
     private static int total_nodes = 0;
 
-    private static Way[] ways = new Way[MAX_WAYS];
+    private static Arestas[] arestas = new Arestas[MAX_WAYS];
     private static int total_ways = 0;
 
-    // Inicializa os arrays de objetos
+    // Inicializa os arrays de objetos para evitar NullPointerException
     static {
         for (int i = 0; i < MAX_NODES; i++) {
-            nodes[i] = new Vertice(); // Instancia a classe externa Vertice
+            nodes[i] = new Vertice(); 
         }
         for (int i = 0; i < MAX_WAYS; i++) {
-            ways[i] = new Way();
+            arestas[i] = new Arestas(); // Instancia a classe externa Aresta
         }
     }
 
@@ -65,7 +58,6 @@ public class OsmParser {
         return "";
     }
 
-    // ALTERAÇÃO: Parâmetro alterado para receber o array de Vertice
     private static void reduzirEscala(Vertice[] pontos, int n, int redutor) {
         double minX = pontos[0].x, minY = pontos[0].y;
         for (int i = 1; i < n; i++) {
@@ -83,7 +75,7 @@ public class OsmParser {
         String arqSaida = (posPonto != -1 ? filename.substring(0, posPonto) : filename) + ".poly";
 
         int inside_way = 0;
-        Way current_way = new Way();
+        Arestas current_way = new Arestas();
 
         try (BufferedReader br = new BufferedReader(new FileReader(filename));
              BufferedWriter bw = new BufferedWriter(new FileWriter(arqSaida))) {
@@ -106,23 +98,23 @@ public class OsmParser {
                 }
                 else if (line.contains("<way")) {
                     inside_way = 1;
-                    current_way = new Way(); 
+                    current_way = new Arestas(); 
                 }
                 else if (inside_way == 1 && line.contains("<nd")) {
                     String ref_str = extractAttr(line, "ref=");
                     long ref_id = Long.parseLong(ref_str);
                     int index = getNodeIndex(ref_id);
-                    if (index != -1 && current_way.count < MAX_WAY_NODES) {
+                    if (index != -1 && current_way.count < Arestas.MAX_WAY_NODES) {
                         current_way.node_ids[current_way.count++] = index;
                     }
                 }
                 else if (inside_way == 1 && line.contains("</way>")) {
                     inside_way = 0;
                     if (current_way.count > 1 && total_ways < MAX_WAYS) {
-                        Way copy = new Way();
+                        Arestas copy = new Arestas();
                         copy.count = current_way.count;
                         System.arraycopy(current_way.node_ids, 0, copy.node_ids, 0, current_way.count);
-                        ways[total_ways++] = copy;
+                        arestas[total_ways++] = copy;
                     }
                 }
             }
@@ -147,7 +139,7 @@ public class OsmParser {
 
             int numID = 0;
             for (int i = 0; i < total_ways; i++) {
-                for (int j = 0; j < ways[i].count - 1; j++) {
+                for (int j = 0; j < arestas[i].count - 1; j++) {
                     numID++;
                 }
             }
@@ -155,9 +147,9 @@ public class OsmParser {
 
             numID = 0;
             for (int i = 0; i < total_ways; i++) {
-                for (int j = 0; j < ways[i].count - 1; j++) {
-                    int from = ways[i].node_ids[j];
-                    int to = ways[i].node_ids[j + 1];
+                for (int j = 0; j < arestas[i].count - 1; j++) {
+                    int from = arestas[i].node_ids[j];
+                    int to = arestas[i].node_ids[j + 1];
                     bw.write(String.format("%d\t%d\t%d\t%d\n", numID++, from, to, 0));
                 }
             }
