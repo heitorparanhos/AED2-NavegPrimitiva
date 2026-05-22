@@ -4,7 +4,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
-public class OsmParser {
+public class ConverteMapaParaGrafo {
 
     private static final int MAX_NODES = 10000;
     private static final int MAX_WAYS = 5000;
@@ -23,7 +23,7 @@ public class OsmParser {
     private static Vertice[] nodes = new Vertice[MAX_NODES];
     private static int total_nodes = 0;
 
-    private static Arestas[] arestas = new Arestas[MAX_WAYS];
+    private static Aresta[] arestas = new Aresta[MAX_WAYS];
     private static int total_ways = 0;
 
     // Inicializa os arrays de objetos para evitar NullPointerException
@@ -32,7 +32,7 @@ public class OsmParser {
             nodes[i] = new Vertice(); 
         }
         for (int i = 0; i < MAX_WAYS; i++) {
-            arestas[i] = new Arestas(); // Instancia a classe externa Aresta
+            arestas[i] = new Aresta(); 
         }
     }
 
@@ -75,7 +75,7 @@ public class OsmParser {
         String arqSaida = (posPonto != -1 ? filename.substring(0, posPonto) : filename) + ".poly";
 
         int inside_way = 0;
-        Arestas current_way = new Arestas();
+        Aresta current_way = new Aresta();
 
         try (BufferedReader br = new BufferedReader(new FileReader(filename));
              BufferedWriter bw = new BufferedWriter(new FileWriter(arqSaida))) {
@@ -91,82 +91,4 @@ public class OsmParser {
                     if (total_nodes < MAX_NODES) {
                         nodes[total_nodes].id_original = Long.parseLong(id_str);
                         nodes[total_nodes].lat = Double.parseDouble(lat_str);
-                        nodes[total_nodes].lon = Double.parseDouble(lon_str);
-                        nodes[total_nodes].id_interno = total_nodes;
-                        total_nodes++;
-                    }
-                }
-                else if (line.contains("<way")) {
-                    inside_way = 1;
-                    current_way = new Arestas(); 
-                }
-                else if (inside_way == 1 && line.contains("<nd")) {
-                    String ref_str = extractAttr(line, "ref=");
-                    long ref_id = Long.parseLong(ref_str);
-                    int index = getNodeIndex(ref_id);
-                    if (index != -1 && current_way.count < Arestas.MAX_WAY_NODES) {
-                        current_way.node_ids[current_way.count++] = index;
-                    }
-                }
-                else if (inside_way == 1 && line.contains("</way>")) {
-                    inside_way = 0;
-                    if (current_way.count > 1 && total_ways < MAX_WAYS) {
-                        Arestas copy = new Arestas();
-                        copy.count = current_way.count;
-                        System.arraycopy(current_way.node_ids, 0, copy.node_ids, 0, current_way.count);
-                        arestas[total_ways++] = copy;
-                    }
-                }
-            }
-
-            reduzirEscala(nodes, total_nodes, 2);
-
-            double maxY = nodes[0].y;
-            for (int i = 1; i < total_nodes; i++) {
-                if (nodes[i].y > maxY) {
-                    maxY = nodes[i].y;
-                }
-            }
-
-            for (int i = 0; i < total_nodes; i++) {
-                nodes[i].y = maxY - nodes[i].y;
-            }
-
-            bw.write(String.format("%d\t%d\t%d\t%d\n", total_nodes, 2, 0, 1));
-            for (int i = 0; i < total_nodes; i++) {
-                bw.write(String.format("%d\t%f\t%f\n", nodes[i].id_interno, nodes[i].lat, nodes[i].lon));
-            }
-
-            int numID = 0;
-            for (int i = 0; i < total_ways; i++) {
-                for (int j = 0; j < arestas[i].count - 1; j++) {
-                    numID++;
-                }
-            }
-            bw.write(String.format("%d\t%d\n", numID, 1));
-
-            numID = 0;
-            for (int i = 0; i < total_ways; i++) {
-                for (int j = 0; j < arestas[i].count - 1; j++) {
-                    int from = arestas[i].node_ids[j];
-                    int to = arestas[i].node_ids[j + 1];
-                    bw.write(String.format("%d\t%d\t%d\t%d\n", numID++, from, to, 0));
-                }
-            }
-            bw.write("0\n");
-
-            System.out.printf("Arquivo \"%s\" criado com sucesso.\n", arqSaida);
-
-        } catch (IOException e) {
-            System.err.println("Erro ao manipular os arquivos: " + e.getMessage());
-        }
-    }
-
-    public static void main(String[] args) {
-        if (args.length != 1) {
-            System.err.println("Uso: java OsmParser arquivo.osm");
-            System.exit(1);
-        }
-        parseOsm(args[0]);
-    }
-}
+                        nodes[total_nodes].lon = Double.parseDouble(
