@@ -2,49 +2,21 @@ import java.util.Scanner;
 
 public class DijkstraGrafo {
 
-    // Constantes equivalentes aos #define do C
     private static final int MAX_VERTICES = 18;
     private static final double INF = 1e9;
 
-    // Structs convertidas em classes estáticas internas
-    public static class Vertices {
-        int id;
-        double x;
-        double y;
-
-        // Construtor auxiliar para facilitar a inicialização semelhante ao C
-        public Vertices(int id, double x, double y) {
-            this.id = id;
-            this.x = x;
-            this.y = y;
-        }
-    }
-
-    public static class Arestas {
-        int orig;
-        int dest;
-        double dist;
-
-        public Arestas(int orig, int dest, double dist) {
-            this.orig = orig;
-            this.dest = dest;
-            this.dist = dist;
-        }
-    }
-
-    // Variáveis globais mantidas conforme o código em C
+    // ALTERAÇÃO: Matriz e Array agora usam as classes externas unificadas
     private static double[][] matrizAdj = new double[MAX_VERTICES][MAX_VERTICES];
-    private static Vertices[] vertices = new Vertices[MAX_VERTICES];
+    private static Vertice[] vertices = new Vertice[MAX_VERTICES];
     private static int totalVertices;
     private static int totalArestas;
 
-    // Função para calcular a distância euclidiana
     public static double calcDist(double x0, double y0, double x1, double y1) {
         return Math.sqrt(Math.pow(x0 - x1, 2.0) + Math.pow(y0 - y1, 2.0));
     }
 
-    // Constrói a matriz de adjacência do grafo
-    public static void construirGrafo(Vertices[] nos, Arestas[] arestas) {
+    // ALTERAÇÃO: Assinatura do método adaptada para as classes externas
+    public static void construirGrafo(Vertice[] nos, Aresta[] arestas) {
         for (int i = 0; i < totalVertices; i++) {
             for (int j = 0; j < totalVertices; j++) {
                 matrizAdj[i][j] = INF;
@@ -60,7 +32,6 @@ public class DijkstraGrafo {
         }
     }
 
-    // Algoritmo de Dijkstra para encontrar o menor caminho
     public static void dijkstra(int inicio, int fim) {
         double[] dist = new double[MAX_VERTICES];
         int[] prev = new int[MAX_VERTICES];
@@ -103,7 +74,6 @@ public class DijkstraGrafo {
 
         System.out.printf("\nDistancia total: %.2f u. m.\n", dist[fim]);
 
-        // Reconstrói o caminho
         int[] path = new int[MAX_VERTICES];
         int path_len = 0;
         for (int v = fim; v != -1; v = prev[v]) {
@@ -120,26 +90,26 @@ public class DijkstraGrafo {
     public static void main(String[] args) {
         int origem, destino;
 
-        // Inicialização do Array de Vértices semelhante à sintaxe do C
-        Vertices[] V = {
-            new Vertices(0, 149, 200),
-            new Vertices(1, 225, 200),
-            new Vertices(2, 156.175936136879, 193.978674634193),
-            new Vertices(3, 164.288445856511, 189.29491496376),
-            new Vertices(4, 173.091034656191, 186.09103465619),
-            new Vertices(5, 182.316240329567, 184.46438199339),
-            new Vertices(6, 191.683759670433, 184.46438199339),
-            new Vertices(7, 200.908965343809, 186.091034656191),
-            new Vertices(8, 209.711554143489, 189.29491496376),
-            new Vertices(9, 217.824063863121, 193.978674634193),
-            new Vertices(10, 217.824063863121, 206.021325365807),
-            new Vertices(11, 209.711554143489, 210.70508503624),
-            new Vertices(12, 200.908965343809, 213.908965343809),
-            new Vertices(13, 191.683759670433, 215.53561800661),
-            new Vertices(14, 182.316240329567, 215.53561800661),
-            new Vertices(15, 173.091034656191, 213.908965343809),
-            new Vertices(16, 164.288445856511, 210.70508503624),
-            new Vertices(17, 156.175936136879, 206.021325365807)
+        // ALTERAÇÃO: Instanciação usando a classe externa Vertice
+        Vertice[] V = {
+            new Vertice(0, 149, 200),
+            new Vertice(1, 225, 200),
+            new Vertice(2, 156.175936136879, 193.978674634193),
+            new Vertice(3, 164.288445856511, 189.29491496376),
+            new Vertice(4, 173.091034656191, 186.09103465619),
+            new Vertice(5, 182.316240329567, 184.46438199339),
+            new Vertice(6, 191.683759670433, 184.46438199339),
+            new Vertice(7, 200.908965343809, 186.091034656191),
+            new Vertice(8, 209.711554143489, 189.29491496376),
+            new Vertice(9, 217.824063863121, 193.978674634193),
+            new Vertice(10, 217.824063863121, 206.021325365807),
+            new Vertice(11, 209.711554143489, 210.70508503624),
+            new Vertice(12, 200.908965343809, 213.908965343809),
+            new Vertice(13, 191.683759670433, 215.53561800661),
+            new Vertice(14, 182.316240329567, 215.53561800661),
+            new Vertice(15, 173.091034656191, 213.908965343809),
+            new Vertice(16, 164.288445856511, 210.70508503624),
+            new Vertice(17, 156.175936136879, 206.021325365807)
         };
 
         totalVertices = V.length;
@@ -148,14 +118,14 @@ public class DijkstraGrafo {
             vertices[i] = V[i];
         }
 
-        // Inicialização do Array de Arestas
-        Arestas[] A = {
-            new Arestas(0, 2, 0),   new Arestas(2, 3, 0),   new Arestas(3, 4, 0),
-            new Arestas(4, 5, 0),   new Arestas(5, 6, 0),   new Arestas(6, 7, 0),
-            new Arestas(7, 8, 0),   new Arestas(8, 9, 0),   new Arestas(9, 0, 0),
-            new Arestas(9, 10, 0),  new Arestas(10, 11, 0), new Arestas(11, 12, 0),
-            new Arestas(12, 13, 0), new Arestas(13, 14, 0), new Arestas(14, 15, 0),
-            new Arestas(15, 16, 0), new Arestas(16, 17, 0), new Arestas(17, 0, 0)
+        // ALTERAÇÃO: Instanciação usando a classe externa Aresta
+        Aresta[] A = {
+            new Aresta(0, 2, 0),   new Aresta(2, 3, 0),   new Aresta(3, 4, 0),
+            new Aresta(4, 5, 0),   new Aresta(5, 6, 0),   new Aresta(6, 7, 0),
+            new Aresta(7, 8, 0),   new Aresta(8, 9, 0),   new Aresta(9, 0, 0),
+            new Aresta(9, 10, 0),  new Aresta(10, 11, 0), new Aresta(11, 12, 0),
+            new Aresta(12, 13, 0), new Aresta(13, 14, 0), new Aresta(14, 15, 0),
+            new Aresta(15, 16, 0), new Aresta(16, 17, 0), new Aresta(17, 0, 0)
         };
 
         totalArestas = A.length;
@@ -166,7 +136,7 @@ public class DijkstraGrafo {
         System.out.printf("Total de vertices: %d\n", totalVertices);
         System.out.printf("Total de arestas : %d\n\n", totalArestas);
 
-        Scanner scanner = new Scanner(System.プリin);
+        Scanner scanner = new Scanner(System.in);
 
         System.out.printf("Digite o vertice de origem (0 a %d): ", totalVertices - 1);
         origem = scanner.nextInt();
