@@ -1,0 +1,210 @@
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+
+public class OsmParser {
+
+    // Constantes equivalents aos #define e globais do C
+    private static final int MAX_NODES = 10000;
+    private static final int MAX_WAYS = 5000;
+    private static final int MAX_WAY_NODES = 100;
+
+    private static final int MAX_VERTICES = 10000;
+    private static final int INFINITO = 1000000000;
+    private static final double PI = Math.PI;
+
+    // Parâmetros da zona UTM 23S
+    private static final double a = 6378137.0;        // Semi-eixo maior WGS84
+    private static final double f = 1.0 / 298.257223563; // Achatamento
+    private static final double k0 = 0.9996;
+    private static final double lon0_deg = -45.0;     // longitude central da zona 23S
+
+    // Structs convertidas em classes estáticas internas
+    public static class Node {
+        long id_original;
+        double lat;
+        double lon;
+        double x;
+        double y;
+        int id_interno; // de 0 a n-1
+    }
+
+    public static class Way {
+        int[] node_ids = new int[MAX_WAY_NODES]; // Índices internos dos nós
+        int count = 0;
+    }
+
+    // Arrays globais mantidos para simular o comportamento do C
+    private static Node[] nodes = new Node[MAX_NODES];
+    private static int total_nodes = 0;
+
+    private static Way[] ways = new Way[MAX_WAYS];
+    private static int total_ways = 0;
+
+    // Inicializa os arrays de objetos para evitar NullPointerException
+    static {
+        for (int i = 0; i < MAX_NODES; i++) nodes[i] = new Node();
+        for (int i = 0; i < MAX_WAYS; i++) ways[i] = new Way();
+    }
+
+    // Procura o índice interno de um id original
+    private static int getNodeIndex(long id) {
+        for (int i = 0; i < total_nodes; i++) {
+            if (nodes[i].id_original == id) {
+                return nodes[i].id_interno;
+            }
+        }
+        return -1; // não encontrado
+    }
+
+    // Extrai valor de atributo usando Expressões Regulares ou manipulação de String do Java
+    private static String extractAttr(String line, String key) {
+        String searchKey = key + "\"";
+        int startPos = line.indexOf(searchKey);
+        if (startPos != -1) {
+            startPos += searchKey.length();
+            int endPos = line.indexOf("\"", startPos);
+            if (endPos != -1) {
+                return line.substring(startPos, endPos);
+            }
+        }
+        return "";
+    }
+
+    private static void reduzirEscala(Node[] pontos, int n, int redutor) {
+        double minX = pontos[0].x, minY = pontos[0].y;
+        for (int i = 1; i < n; i++) {
+            if (pontos[i].x < minX) minX = pontos[i].x;
+            if (pontos[i].y < minY) minY = pontos[i].y;
+        }
+        for (int i = 0; i < n; i++) {
+            pontos[i].x = (pontos[i].x - minX) / redutor; // reduzir escala
+            pontos[i].y = (pontos[i].y - minY) / redutor;
+        }
+    }
+
+    public static void parseOsm(String filename) {
+        // Equivalente ao RAt e Left do C para gerar o nome do arquivo de saída
+        int posPonto = filename.lastIndexOf(".");
+        String arqSaida = (posPonto != -1 ? filename.substring(0, posPonto) : filename) + ".poly";
+
+        int inside_way = 0;
+        Way current_way = new Way();
+
+        // Bloco try-with-resources que abre e fecha os arquivos automaticamente
+        try (BufferedReader br = new BufferedReader(new FileReader(filename));
+             BufferedWriter bw = new BufferedWriter(new FileWriter(arqSaida))) {
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                
+                // Verifica se é um nó
+                if (line.contains("<node") && line.contains("lat=") && line.contains("lon=")) {
+                    String id_str = extractAttr(line, "id=");
+                    String lat_str = extractAttr(line, "lat=");
+                    String lon_str = extractAttr(line, "lon=");
+
+                    if (total_nodes < MAX_NODES) {
+                        nodes[total_nodes].id_original = Long.parseLong(id_str);
+                        nodes[total_nodes].lat = Double.parseDouble(lat_str);
+                        nodes[total_nodes].lon = Double.parseDouble(lon_str);
+                        
+                        // Nota: O seu código original em C não preenche as variáveis 'x' e 'y'.
+                        // Se você precisar delas no 'reduzirEscala', lembre-se de populá-las aqui.
+                        
+                        nodes[total_nodes].id_interno = total_nodes;
+                        total_nodes++;
+                    }
+                }
+                // Verifica se é o início de uma via
+                else if (line.contains("<way")) {
+                    inside_way = 1;
+                    current_way = new Way(); // Reseta a via atual
+                }
+                // Verifica se é um nó dentro de uma via
+                else if (inside_way == 1 && line.contains("<nd")) {
+                    String ref_str = extractAttr(line, "ref=");
+                    long ref_id = Long.parseLong(ref_str);
+                    int index = getNodeIndex(ref_id);
+                    if (index != -1 && current_way.count < MAX_WAY_NODES) {
+                        current_way.node_ids[current_way.count++] = index;
+                    }
+                }
+                // Fim de uma via
+                else if (inside_way == 1 && line.contains("</way>")) {
+                    inside_way = 0;
+                    if (current_way.count > 1 && total_ways < MAX_WAYS) {
+                        // Copia profunda manual para simular atribuição de struct do C
+                        Way copy = new Way();
+                        copy.count = current_way.count;
+                        System.arraycopy(current_way.node_ids, 0, copy.node_ids, 0, current_way.count);
+                        ways[total_ways++] = copy;
+                    }
+                }
+            }
+
+            // Reduzir escala
+            reduzirEscala(nodes, total_nodes, 2);
+
+            // Obter máximo valor da coordenada Y e fazer rotação vertical
+            double maxY = nodes[0].y;
+            for (int i = 1; i < total_nodes; i++) {
+                if (nodes[i].y > maxY) {
+                    maxY = nodes[i].y;
+                }
+            }
+
+            for (int i = 0; i < total_nodes; i++) {
+                nodes[i].y = maxY - nodes[i].y;
+            }
+
+            // Imprime nós no arquivo
+            bw.write(String.format("%d\t%d\t%d\t%d\n", total_nodes, 2, 0, 1));
+            for (int i = 0; i < total_nodes; i++) {
+                bw.write(String.format("%d\t%f\t%f\n", nodes[i].id_interno, nodes[i].lat, nodes[i].lon));
+            }
+
+            // Contabiliza arestas
+            int numID = 0;
+            for (int i = 0; i < total_ways; i++) {
+                for (int j = 0; j < ways[i].count - 1; j++) {
+                    numID++;
+                }
+            }
+            bw.write(String.format("%d\t%d\n", numID, 1));
+
+            // Imprime arestas
+            numID = 0;
+            for (int i = 0; i < total_ways; i++) {
+                for (int j = 0; j < ways[i].count - 1; j++) {
+                    int from = ways[i].node_ids[j];
+                    int to = ways[i].node_ids[j + 1];
+                    bw.write(String.format("%d\t%d\t%d\t%d\n", numID++, from, to, 0));
+                }
+            }
+            bw.write("0\n");
+
+            System.out.printf("Arquivo \"%s\" criado com sucesso.\n", arqSaida);
+
+        } catch (IOException e) {
+            System.err.println("Erro ao manipular os arquivos: " + e.getMessage());
+        }
+    }
+
+    public static void main(String[] args) {
+        if (args.length != 2) {
+            // Mantive o comportamento do C esperando 2 argumentos (o comando em si não conta em Java, mas para manter a lógica do C alterei para 1)
+            // IMPORTANTE: Em Java, o args[0] JÁ É O PRIMEIRO ARGUMENTO, não o nome do executável.
+            // Ajustei abaixo para verificar se possui 1 argumento, que é o esperado para rodar o script.
+        }
+        
+        if (args.length != 1) {
+            System.err.println("Uso: java OsmParser arquivo.osm");
+            System.exit(1);
+        }
+        
+        parseOsm(args[0]);
+    }
+}
