@@ -52,6 +52,13 @@ public class GrafoVisual extends JFrame {
     private List<Integer>  caminho         = new ArrayList<>();
     private String         nomeArquivo     = "";
 
+    // ── Modo de interacao (RF05) ─────────────────────────────────────────────
+    private enum Modo { NAVEGAR, ADICIONAR_VERTICE, ADICIONAR_ARESTA, REMOVER_VERTICE, REMOVER_ARESTA }
+    private Modo modo = Modo.NAVEGAR;
+
+    // Primeiro vertice selecionado ao criar uma aresta (-1 = nenhum ainda)
+    private int arestaOrigem = -1;
+
     // Transformação mundo → tela:  telaX = mundoX * escala + offX
     private double escala = 1.0;
     private double offX   = 0.0;
@@ -117,6 +124,44 @@ public class GrafoVisual extends JFrame {
                 new Color(28, 68, 48), new Color(42, 105, 72));
         btnAbrir.addActionListener(e -> abrirArquivo());
         painel.add(centrado(btnAbrir, 185, 40));
+        painel.add(Box.createVerticalStrut(8));
+
+        // ── Modo de interacao (RF05) ─────────────────────────────────────
+        painel.add(Box.createVerticalStrut(14));
+        painel.add(secao("MODO"));
+        painel.add(Box.createVerticalStrut(10));
+
+        JButton btnModo = btn("Navegar",
+                new Color(35, 55, 110), new Color(55, 85, 165));
+        btnModo.addActionListener(e -> {
+            // Cicla: NAVEGAR -> ADICIONAR_VERTICE -> ADICIONAR_ARESTA -> NAVEGAR
+            if (modo == Modo.NAVEGAR) {
+                modo = Modo.ADICIONAR_VERTICE;
+                btnModo.setText("Adicionar vertice");
+                setStatus("Modo edicao: clique no canvas para criar um vertice", COR_OK);
+            } else if (modo == Modo.ADICIONAR_VERTICE) {
+                modo = Modo.ADICIONAR_ARESTA;
+                btnModo.setText("Adicionar aresta");
+                setStatus("Modo aresta: clique em dois vertices para liga-los", COR_OK);
+            } else if (modo == Modo.ADICIONAR_ARESTA) {
+                modo = Modo.REMOVER_VERTICE;
+                btnModo.setText("Remover vertice");
+                setStatus("Modo remover: clique em um vertice para apaga-lo", COR_OK);
+            } else if (modo == Modo.REMOVER_VERTICE) {
+                modo = Modo.REMOVER_ARESTA;
+                btnModo.setText("Remover aresta");
+                setStatus("Modo remover aresta: clique sobre uma aresta para apaga-la", COR_OK);
+            } else {
+                modo = Modo.NAVEGAR;
+                btnModo.setText("Navegar");
+                setStatus("Modo navegar: clique em dois vertices para o caminho", COR_OK);
+            }
+            origem       = -1;
+            arestaOrigem = -1;
+            caminho.clear();
+            canvas.repaint();
+        });
+        painel.add(centrado(btnModo, 185, 40));
         painel.add(Box.createVerticalStrut(8));
 
         lblArquivo = new JLabel("Nenhum arquivo carregado");
@@ -324,6 +369,62 @@ public class GrafoVisual extends JFrame {
         return -1;
     }
 
+    /**
+     * Encontra a aresta cujo segmento passa mais perto do ponto (px,py) na tela.
+     * Retorna um int[]{orig, dest} da aresta clicada, ou null se nenhuma estiver
+     * dentro da tolerancia de toque.
+     *
+     * Usa distancia ponto-segmento: para cada aresta, calcula a menor distancia
+     * entre o clique e o segmento que liga os dois vertices na tela.
+     */
+    private int[] arestaEm(int px, int py) {
+        double tolerancia = 6.0;          // raio de toque em pixels
+        double melhorDist = tolerancia;
+        int[]  melhor     = null;
+
+        List<List<Aresta>> adj = grafo.getAd();
+        for (int u = 0; u < adj.size(); u++) {
+            Vertice vu = grafo.getVertice(u);
+            if (vu == null) continue;
+            int ux = tx(vu.x), uy = ty(vu.y);
+
+            for (Aresta a : adj.get(u)) {
+                Vertice vd = grafo.getVertice(a.dest);
+                if (vd == null) continue;
+                int vx = tx(vd.x), vy = ty(vd.y);
+
+                double d = distPontoSegmento(px, py, ux, uy, vx, vy);
+                if (d < melhorDist) {
+                    melhorDist = d;
+                    melhor     = new int[]{ u, a.dest };
+                }
+            }
+        }
+        return melhor;
+    }
+
+    /**
+     * Distancia do ponto (px,py) ao segmento de reta (ax,ay)-(bx,by).
+     * Projeta o ponto sobre a reta do segmento e limita a projecao ao
+     * intervalo [0,1] para nao "vazar" para fora das extremidades.
+     */
+    private double distPontoSegmento(int px, int py,
+                                     int ax, int ay, int bx, int by) {
+        double dx = bx - ax, dy = by - ay;
+        double comprimento2 = dx*dx + dy*dy;
+        if (comprimento2 == 0) {
+            // Segmento degenerado: os dois extremos coincidem
+            double ex = px - ax, ey = py - ay;
+            return Math.sqrt(ex*ex + ey*ey);
+        }
+        // t = posicao da projecao ao longo do segmento (0 = a, 1 = b)
+        double t = ((px - ax)*dx + (py - ay)*dy) / comprimento2;
+        t = Math.max(0, Math.min(1, t));
+        double projX = ax + t*dx, projY = ay + t*dy;
+        double ex = px - projX, ey = py - projY;
+        return Math.sqrt(ex*ex + ey*ey);
+    }
+
     private void ajustarView() {
         double minX = Double.MAX_VALUE, maxX = -Double.MAX_VALUE;
         double minY = Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
@@ -388,6 +489,77 @@ public class GrafoVisual extends JFrame {
 
                     // Clique simples esquerdo → Dijkstra
                     if (SwingUtilities.isLeftMouseButton(e) && !e.isControlDown()) {
+
+                        // ── Modo edicao: criar vertice (RF05) ──────────────
+                        if (modo == Modo.ADICIONAR_VERTICE) {
+                            double wx = mx(e.getX());
+                            double wy = my(e.getY());
+                            int novoId = grafo.adicionarVertice(wx, wy);
+                            setStatus("Vertice " + novoId + " criado em ("
+                                    + String.format("%.1f, %.1f", wx, wy) + ")", COR_OK);
+                            repaint();
+                            return;
+                        }
+
+                        // ── Modo edicao: criar aresta (RF05) ───────────────
+                        if (modo == Modo.ADICIONAR_ARESTA) {
+                            int v = verticeEm(e.getX(), e.getY());
+                            if (v == -1) {
+                                setStatus("Clique em cima de um vertice para criar a aresta", COR_ERR);
+                                return;
+                            }
+                            if (arestaOrigem == -1) {
+                                // Primeiro vertice da aresta
+                                arestaOrigem = v;
+                                setStatus("Aresta: vertice " + v
+                                        + " selecionado - clique no segundo vertice", COR_OK);
+                            } else if (v == arestaOrigem) {
+                                setStatus("Selecione um vertice diferente do primeiro", COR_ERR);
+                            } else {
+                                // Segundo vertice: cria a aresta de mao dupla
+                                grafo.adicionarAresta(arestaOrigem, v, true);
+                                setStatus("Aresta criada entre " + arestaOrigem
+                                        + " e " + v, COR_OK);
+                                arestaOrigem = -1;
+                            }
+                            repaint();
+                            return;
+                        }
+
+                        // ── Modo edicao: remover vertice (RF05) ────────────
+                        if (modo == Modo.REMOVER_VERTICE) {
+                            int v = verticeEm(e.getX(), e.getY());
+                            if (v == -1) {
+                                setStatus("Clique em cima de um vertice para remove-lo", COR_ERR);
+                                return;
+                            }
+                            grafo.removerVertice(v);
+                            // Limpa selecoes que possam apontar para o vertice removido
+                            if (origem == v)       origem = -1;
+                            if (arestaOrigem == v) arestaOrigem = -1;
+                            caminho.clear();
+                            setStatus("Vertice " + v + " removido (e suas arestas)", COR_OK);
+                            repaint();
+                            return;
+                        }
+
+                        // ── Modo edicao: remover aresta (RF05) ─────────────
+                        if (modo == Modo.REMOVER_ARESTA) {
+                            int[] ar = arestaEm(e.getX(), e.getY());
+                            if (ar == null) {
+                                setStatus("Clique mais perto de uma aresta para remove-la", COR_ERR);
+                                return;
+                            }
+                            // Remove os dois sentidos (cobre mao unica e mao dupla)
+                            grafo.removerAresta(ar[0], ar[1]);
+                            grafo.removerAresta(ar[1], ar[0]);
+                            caminho.clear();
+                            setStatus("Aresta entre " + ar[0] + " e " + ar[1]
+                                    + " removida", COR_OK);
+                            repaint();
+                            return;
+                        }
+
                         int v = verticeEm(e.getX(), e.getY());
                         if (v == -1) return;
 
@@ -417,15 +589,22 @@ public class GrafoVisual extends JFrame {
                                         ResultadoDijkstra r = get();
                                         if (r.temCaminho()) {
                                             caminho = r.caminho;
+                                            // RF07: custo total, saltos, nos explorados e tempo
                                             String info = String.format(
-                                                "<html><center>dist: <b>%.2f</b><br>saltos: <b>%d</b><br>tempo: <b>%d ms</b></center></html>",
-                                                r.distanciaTotal, r.caminho.size() - 1, r.tempoMs);
+                                                "<html><div style='font-family:monospace;line-height:1.9'>" +
+                                                "Custo total:&nbsp;&nbsp;<b>%.2f</b><br>" +
+                                                "Saltos:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>%d</b><br>" +
+                                                "Nos explorados: <b>%d</b><br>" +
+                                                "Tempo:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>%d ms</b>" +
+                                                "</div></html>",
+                                                r.distanciaTotal, r.caminho.size() - 1,
+                                                r.nosExplorados, r.tempoMs);
                                             lblInfo.setText(info);
                                             lblInfo.setForeground(COR_OK);
                                             setStatus(String.format(
-                                                "✔  %d → %d | dist=%.2f | %d vértices | %d ms",
+                                                "OK  %d -> %d | custo=%.2f | %d nos explorados | %d ms",
                                                 orig0, dest, r.distanciaTotal,
-                                                r.caminho.size(), r.tempoMs), COR_OK);
+                                                r.nosExplorados, r.tempoMs), COR_OK);
                                         } else {
                                             caminho.clear();
                                             lblInfo.setText("<html><center><b>Sem caminho</b></center></html>");
@@ -554,6 +733,14 @@ public class GrafoVisual extends JFrame {
                     g.setStroke(new BasicStroke(2.2f));
                     int r2 = raio + 5;
                     g.drawOval(cx - r2, cy - r2, r2*2, r2*2);
+                }
+
+                // Destaque do 1o vertice ao criar uma aresta (RF05)
+                if (id == arestaOrigem) {
+                    g.setColor(COR_ORIGEM);
+                    g.setStroke(new BasicStroke(2.4f));
+                    int r3 = raio + 5;
+                    g.drawOval(cx - r3, cy - r3, r3*2, r3*2);
                 }
 
                 // Sombra
