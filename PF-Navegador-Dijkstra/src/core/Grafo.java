@@ -27,15 +27,25 @@ public class Grafo {
     private final ArrayList<ArrayList<Aresta>>  adjacencia;
 
     /**
-     * Contador de arestas *lógicas* (uma aresta bidirecional conta como 1).
-     * Increments: 1 por chamada a adicionarAresta(), independente de maoDupla.
+     * NÃO mantemos mais um contador explícito: totalArestas() recomputa sob
+     * demanda varrendo as listas de adjacência.  Isso elimina qualquer
+     * dessincronização ao misturar arestas de mão única e mão dupla (RF06).
+     *
+     * Algoritmo de contagem em totalArestas():
+     *   Para cada arco (u -> w):
+     *     • u < w  → conta sempre 1 (pega o arco pelo "lado menor")
+     *     • u == w → conta 1 (self-loop, caso raro)
+     *     • u > w  → conta 1 SOMENTE se o arco inverso (w -> u) NÃO existe,
+     *                i.e., é uma mão única "de trás para frente" que ainda
+     *                não foi capturada pela regra u < w.
+     * Bidirecionais contribuem 1 (via u < w) e seu par inverso u > w é
+     * ignorado.  Mão únicas contribuem exatamente 1 independentemente de
+     * qual sentido têm.
      */
-    private int totalArestas;
 
     public Grafo() {
         vertices   = new ArrayList<>();
         adjacencia = new ArrayList<>();
-        totalArestas = 0;
     }
 
     // ─── Carga do arquivo ─────────────────────────────────────────────────────
@@ -62,7 +72,6 @@ public class Grafo {
     public void carregarDoArquivo(String caminho) throws IOException {
         vertices.clear();
         adjacencia.clear();
-        totalArestas = 0;
 
         try (BufferedReader br = new BufferedReader(new FileReader(caminho))) {
 
@@ -142,26 +151,19 @@ public class Grafo {
      * Remove o vértice v e TODAS as arestas incidentes (tanto saindo de v
      * quanto chegando em v).  O slot fica null para preservar os ids dos
      * demais vértices.
+     *
+     * O contador totalArestas() recomputa sozinho — nenhum ajuste manual aqui.
      */
     public void removerVertice(int v) {
         if (v < 0 || v >= vertices.size() || vertices.get(v) == null) return;
 
-        // Remove arestas que saem de v (cada uma foi contada como 1 aresta lógica
-        // na chamada original de adicionarAresta, então decrementamos 1 por cada)
-        totalArestas -= adjacencia.get(v).size(); // simplificação: 1 por entrada (bidirecional)
-        // Porém, como bidirecional conta 1 lógica e gera 2 entradas, a contagem
-        // precisa ser ajustada.  Para evitar complexidade, recontamos ao final.
         adjacencia.get(v).clear();
         vertices.set(v, null);
 
-        // Remove arestas que chegam em v (só as entradas físicas na lista)
         for (int u = 0; u < adjacencia.size(); u++) {
             if (u == v) continue;
             adjacencia.get(u).removeIf(a -> a.dest == v);
         }
-
-        // Recalcula totalArestas de forma precisa após a remoção
-        recalcularTotalArestas();
     }
 
     /**
@@ -182,8 +184,7 @@ public class Grafo {
         if (maoDupla) {
             adjacencia.get(dest).add(new Aresta(dest, orig, dist));
         }
-
-        totalArestas++; // conta 1 aresta lógica por chamada
+        // totalArestas() recomputa sob demanda — nenhum contador para atualizar
     }
 
     /**
@@ -193,10 +194,8 @@ public class Grafo {
      */
     public void removerAresta(int orig, int dest) {
         if (orig < 0 || orig >= adjacencia.size()) return;
-        List<Aresta> lista = adjacencia.get(orig);
-        int antes = lista.size();
-        lista.removeIf(a -> a.dest == dest);
-        if (lista.size() < antes) totalArestas--;
+        adjacencia.get(orig).removeIf(a -> a.dest == dest);
+        // totalArestas() recomputa sob demanda — nenhum contador para atualizar
     }
 
     // ─── Getters ─────────────────────────────────────────────────────────────
@@ -205,8 +204,22 @@ public class Grafo {
         return vertices.size();
     }
 
+    /**
+     * Conta arestas lógicas varrendo as listas de adjacência.
+     * Ver comentário do campo para o critério de contagem.
+     * Complexidade: O(V + E × grau_médio) — imperceptível para grafos esparsos.
+     */
     public int totalArestas() {
-        return totalArestas;
+        int count = 0;
+        for (int u = 0; u < adjacencia.size(); u++) {
+            for (Aresta a : adjacencia.get(u)) {
+                int w = a.dest;
+                if (u <= w || !existeArco(w, u)) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     /**
@@ -227,11 +240,51 @@ public class Grafo {
     }
 
     /**
-     * Retorna todas as listas de adjacência (uma por vértice).
+     * Retorna todas as listas de adjacência (uma por vértice), somente leitura.
      * Conveniente para a UI renderizar todas as arestas de uma vez.
      */
     public List<List<Aresta>> getAd() {
         return Collections.unmodifiableList(adjacencia);
+    }
+
+    /**
+     * Retorna a lista de vértices indexada por id_interno, somente leitura.
+     * Posições com null representam vértices removidos — a UI deve ignorá-las
+     * ao iterar (verificar != null antes de usar cada elemento).
+     */
+    public List<Vertice> getVertices() {
+        return Collections.unmodifiableList(vertices);
+    }
+
+    /**
+     * Retorna o id_interno do vértice cujas coordenadas (x,y) estão mais
+     * próximas do ponto fornecido (distância euclidiana).
+     * Ignora slots removidos (null).
+     *
+     * Usa distância ao quadrado para comparar — evita sqrt desnecessário.
+     * Complexidade: O(V).
+     *
+     * @return id_interno do vértice mais próximo, ou -1 se não houver vértice válido.
+     */
+    public int verticeMaisProximo(double x, double y) {
+        int    melhorId   = -1;
+        double melhorDist = Double.POSITIVE_INFINITY;
+
+        for (int i = 0; i < vertices.size(); i++) {
+            Vertice v = vertices.get(i);
+            if (v == null) continue;
+
+            double dx   = v.x - x;
+            double dy   = v.y - y;
+            double dist2 = dx * dx + dy * dy;   // distância ao quadrado
+
+            if (dist2 < melhorDist) {
+                melhorDist = dist2;
+                melhorId   = i;
+            }
+        }
+
+        return melhorId;
     }
 
     // ─── Auxiliares privados ──────────────────────────────────────────────────
@@ -258,14 +311,14 @@ public class Grafo {
     }
 
     /**
-     * Recalcula totalArestas contando entradas físicas na lista e dividindo
-     * por 2, assumindo que toda aresta presente tem seu par inverso.
-     * Chamado apenas após removerVertice() para manter o contador preciso.
+     * Retorna true se existe um arco físico de u para w na lista de adjacência.
+     * Usado por totalArestas() para detectar arestas de mão única "para trás".
      */
-    private void recalcularTotalArestas() {
-        int entradas = 0;
-        for (ArrayList<Aresta> lista : adjacencia) entradas += lista.size();
-        // Arestas bidirecionais geram 2 entradas físicas → divide por 2
-        totalArestas = entradas / 2;
+    private boolean existeArco(int u, int w) {
+        if (u < 0 || u >= adjacencia.size()) return false;
+        for (Aresta a : adjacencia.get(u)) {
+            if (a.dest == w) return true;
+        }
+        return false;
     }
 }
