@@ -1,3 +1,5 @@
+package core;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -9,7 +11,7 @@ import java.util.List;
  *   — onde V = total de vértices e E = total de arestas (direcionadas)
  *   — graças à combinação de lista de adjacência no Grafo e HeapMinima.
  *
- * Comparação com a versão antiga (MenorCaminhoDijkstra):
+ * Comparação com a versão antiga (MenorCaminhoDijkstra.java):
  *   Antiga : O(V²) com matriz de adjacência + busca linear do mínimo
  *   Nova   : O((V+E) lg V) com lista de adjacência + heap binária
  *   Para V=10 000 e E≈23 000: ~100 M ops → ~460 K ops  (220× mais rápido)

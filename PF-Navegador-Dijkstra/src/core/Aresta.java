@@ -1,8 +1,10 @@
+package core;
+
 public class Aresta {
     public static final int MAX_WAY_NODES = 100;
 
     // Campos para o OsmParser (Vias completas)
-    public int[] node_ids = new int[MAX_WAY_NODES]; 
+    public int[] node_ids = new int[MAX_WAY_NODES];
     public int count = 0;
 
     // Novos campos para o Dijkstra (Arestas diretas)

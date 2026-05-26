@@ -1,25 +1,21 @@
+package core;
+
 import java.util.Scanner;
 
 /**
  * Classe de teste do núcleo (HeapMinima + Grafo + Dijkstra).
  *
  * Uso:
- *   java TesteDijkstra <caminho_do_arquivo.poly> [origem] [destino]
- *
- * Exemplos:
- *   java TesteDijkstra ../../data/ArquivosPoly           (modo interativo)
- *   java TesteDijkstra ../../data/ArquivosPoly 1222 5000 (modo direto)
+ *   java core.TesteDijkstra <caminho_do_arquivo.poly> [origem] [destino]
  */
 public class TesteDijkstra {
 
     public static void main(String[] args) throws Exception {
 
-        // ── Fase 1: HeapMinima — testes isolados ──────────────────────────────
         System.out.println("=== Teste 1: HeapMinima ===");
         testarHeap();
         System.out.println();
 
-        // ── Fase 2: Grafo — carregamento do .poly ────────────────────────────
         String caminho = args.length >= 1 ? args[0] : "../../data/ArquivosPoly";
 
         System.out.println("=== Teste 2: Grafo ===");
@@ -34,7 +30,6 @@ public class TesteDijkstra {
         System.out.printf("Carga    : %d ms%n", dtCarga);
         System.out.println();
 
-        // Confirma dois vértices conhecidos
         Vertice v0 = g.getVertice(0);
         Vertice v1 = g.getVertice(9999);
         System.out.printf("Vértice 0    : x=%.5f  y=%.5f%n", v0.x, v0.y);
@@ -42,7 +37,6 @@ public class TesteDijkstra {
         System.out.printf("Vizinhos do vértice 0 : %d%n", g.getAdjacencia(0).size());
         System.out.println();
 
-        // ── Fase 3: Dijkstra ──────────────────────────────────────────────────
         System.out.println("=== Teste 3: Dijkstra ===");
 
         int origem, destino;
@@ -60,7 +54,7 @@ public class TesteDijkstra {
         }
 
         if (origem  < 0 || origem  >= g.totalVertices() ||
-            destino < 0 || destino >= g.totalVertices()) {
+                destino < 0 || destino >= g.totalVertices()) {
             System.out.println("Índices inválidos.");
             return;
         }
@@ -72,13 +66,11 @@ public class TesteDijkstra {
 
         if (res.temCaminho()) {
             System.out.println("\nCaminho (vértices):");
-            // Imprime no máximo 20 vértices para não poluir a saída
             int lim = Math.min(res.caminho.size(), 20);
             for (int i = 0; i < lim; i++) {
                 int id = res.caminho.get(i);
                 Vertice vv = g.getVertice(id);
-                System.out.printf("  [%d] id=%d  x=%.3f  y=%.3f%n",
-                    i, id, vv.x, vv.y);
+                System.out.printf("  [%d] id=%d  x=%.3f  y=%.3f%n", i, id, vv.x, vv.y);
             }
             if (res.caminho.size() > 20) {
                 System.out.printf("  ... (%d vértices no total)%n", res.caminho.size());
@@ -86,16 +78,9 @@ public class TesteDijkstra {
         }
     }
 
-    // ─── Testes isolados do HeapMinima ────────────────────────────────────────
-
     private static void testarHeap() {
         boolean ok = true;
 
-        // Teste 1: inserção e extração em ordem crescente
-        HeapMinima h = new HeapMinima(10);
-        int[] ids   = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3};
-        double[] ds = {3.0, 1.0, 4.0, 1.5, 5.0, 9.0, 2.0, 6.0, 5.5, 3.5};
-        // ids únicos para este teste
         HeapMinima h2 = new HeapMinima(10);
         double[] chaves = {5.0, 3.0, 7.0, 1.0, 4.0};
         for (int i = 0; i < 5; i++) h2.inserir(i, chaves[i]);
@@ -110,18 +95,16 @@ public class TesteDijkstra {
         System.out.println("  [" + (ordemOk ? "OK" : "FALHOU") + "] extrairMin() retorna em ordem crescente");
         ok &= ordemOk;
 
-        // Teste 2: diminuirChave
         HeapMinima h3 = new HeapMinima(5);
         h3.inserir(0, 10.0);
         h3.inserir(1, 20.0);
         h3.inserir(2, 30.0);
-        h3.diminuirChave(2, 5.0); // vértice 2 deve virar o mínimo
+        h3.diminuirChave(2, 5.0);
         int min = h3.extrairMin();
         boolean dimOk = (min == 2);
         System.out.println("  [" + (dimOk ? "OK" : "FALHOU") + "] diminuirChave() move elemento para o topo");
         ok &= dimOk;
 
-        // Teste 3: contem()
         HeapMinima h4 = new HeapMinima(5);
         h4.inserir(0, 1.0);
         h4.inserir(1, 2.0);
@@ -129,7 +112,6 @@ public class TesteDijkstra {
         System.out.println("  [" + (contemOk ? "OK" : "FALHOU") + "] contem() correto antes/depois de inserir");
         ok &= contemOk;
 
-        // Teste 4: vazia() após extrair tudo
         h4.extrairMin();
         h4.extrairMin();
         boolean vaziaOk = h4.vazia();
