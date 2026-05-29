@@ -1,3 +1,5 @@
+package core;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,13 +36,13 @@ public class ResultadoDijkstra {
     public String toString() {
         if (!temCaminho()) {
             return String.format(
-                "Sem caminho encontrado | nós explorados: %d | tempo: %d ms",
-                nosExplorados, tempoMs
+                    "Sem caminho encontrado | nós explorados: %d | tempo: %d ms",
+                    nosExplorados, tempoMs
             );
         }
         return String.format(
-            "Distância total: %.4f | vértices no caminho: %d | nós explorados: %d | tempo: %d ms",
-            distanciaTotal, caminho.size(), nosExplorados, tempoMs
+                "Distância total: %.4f | vértices no caminho: %d | nós explorados: %d | tempo: %d ms",
+                distanciaTotal, caminho.size(), nosExplorados, tempoMs
         );
     }
 }

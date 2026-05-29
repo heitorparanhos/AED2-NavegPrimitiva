@@ -1,3 +1,5 @@
+package core;
+
 import java.util.Scanner;
 
 public class MenorCaminhoDijkstra {
@@ -5,7 +7,6 @@ public class MenorCaminhoDijkstra {
     private static final int MAX_VERTICES = 18;
     private static final double INF = 1e9;
 
-    // Matriz e Array usando as classes externas unificadas Vertice e Aresta
     private static double[][] matrizAdj = new double[MAX_VERTICES][MAX_VERTICES];
     private static Vertice[] vertices = new Vertice[MAX_VERTICES];
     private static int totalVertices;
@@ -15,7 +16,6 @@ public class MenorCaminhoDijkstra {
         return Math.sqrt(Math.pow(x0 - x1, 2.0) + Math.pow(y0 - y1, 2.0));
     }
 
-    // Método adaptado para as classes externas
     public static void construirGrafo(Vertice[] nos, Aresta[] arestas) {
         for (int i = 0; i < totalVertices; i++) {
             for (int j = 0; j < totalVertices; j++) {
@@ -90,7 +90,6 @@ public class MenorCaminhoDijkstra {
     public static void main(String[] args) {
         int origem, destino;
 
-        // Instanciação usando a classe externa Vertice
         Vertice[] V = {
             new Vertice(0, 149, 200),
             new Vertice(1, 225, 200),
@@ -113,12 +112,8 @@ public class MenorCaminhoDijkstra {
         };
 
         totalVertices = V.length;
+        for (int i = 0; i < totalVertices; i++) vertices[i] = V[i];
 
-        for (int i = 0; i < totalVertices; i++) {
-            vertices[i] = V[i];
-        }
-
-        // Instanciação usando a classe externa Aresta
         Aresta[] A = {
             new Aresta(0, 2, 0),   new Aresta(2, 3, 0),   new Aresta(3, 4, 0),
             new Aresta(4, 5, 0),   new Aresta(5, 6, 0),   new Aresta(6, 7, 0),
@@ -129,7 +124,6 @@ public class MenorCaminhoDijkstra {
         };
 
         totalArestas = A.length;
-
         construirGrafo(V, A);
 
         System.out.println("Menor caminho entre dois vertices - algoritmo de Dijkstra\n");
@@ -137,10 +131,8 @@ public class MenorCaminhoDijkstra {
         System.out.printf("Total de arestas : %d\n\n", totalArestas);
 
         Scanner scanner = new Scanner(System.in);
-
         System.out.printf("Digite o vertice de origem (0 a %d): ", totalVertices - 1);
         origem = scanner.nextInt();
-
         System.out.printf("Digite o vertice de destino (0 a %d): ", totalVertices - 1);
         destino = scanner.nextInt();
 

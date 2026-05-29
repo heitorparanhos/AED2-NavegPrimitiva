@@ -1,3 +1,5 @@
+package core;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -175,8 +177,8 @@ public class Grafo {
         if (!verticeValido(orig) || !verticeValido(dest)) return;
 
         double dist = calcDist(
-            vertices.get(orig).x, vertices.get(orig).y,
-            vertices.get(dest).x, vertices.get(dest).y
+                vertices.get(orig).x, vertices.get(orig).y,
+                vertices.get(dest).x, vertices.get(dest).y
         );
 
         adjacencia.get(orig).add(new Aresta(orig, dest, dist));

@@ -1,11 +1,15 @@
+package ui;
+
+import core.*;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.RenderingHints;
-import java.io.File;
+import java.io.*;
 import java.util.*;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * GrafoVisual — Visualizador de grafos com Dijkstra interativo.
@@ -22,6 +26,7 @@ import java.util.List;
  *   java GrafoVisual
  *   java GrafoVisual meugrafo.poly
  */
+
 public class GrafoVisual extends JFrame {
 
     // ── Paleta ───────────────────────────────────────────────────────────────
@@ -177,10 +182,10 @@ public class GrafoVisual extends JFrame {
         painel.add(Box.createVerticalStrut(10));
 
         JLabel instrucao = new JLabel(
-            "<html><div style='text-align:center;line-height:1.7'>" +
-            "1º clique — vértice de <b>origem</b><br>" +
-            "2º clique — vértice de <b>destino</b>" +
-            "</div></html>");
+                "<html><div style='text-align:center;line-height:1.7'>" +
+                        "1º clique — vértice de <b>origem</b><br>" +
+                        "2º clique — vértice de <b>destino</b>" +
+                        "</div></html>");
         instrucao.setFont(new Font("SansSerif", Font.PLAIN, 11));
         instrucao.setForeground(new Color(120, 145, 200));
         instrucao.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -218,11 +223,11 @@ public class GrafoVisual extends JFrame {
         painel.add(Box.createVerticalStrut(8));
 
         JLabel nav = new JLabel(
-            "<html><div style='text-align:center;line-height:1.8'>" +
-            "🖱 Scroll — zoom<br>" +
-            "🖱 Meio / Ctrl+drag — pan<br>" +
-            "🔍 Duplo clique — ajustar tela" +
-            "</div></html>");
+                "<html><div style='text-align:center;line-height:1.8'>" +
+                        "🖱 Scroll — zoom<br>" +
+                        "🖱 Meio / Ctrl+drag — pan<br>" +
+                        "🔍 Duplo clique — ajustar tela" +
+                        "</div></html>");
         nav.setFont(new Font("SansSerif", Font.PLAIN, 10));
         nav.setForeground(new Color(65, 85, 135));
         nav.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -310,33 +315,59 @@ public class GrafoVisual extends JFrame {
             carregarArquivo(fc.getSelectedFile());
     }
 
+    // ── Salvar ───────────────────────────────────────────────────────────────
+    private void abrirSalvarArquivo() {
+        JFileChooser fc = new JFileChooser(".");
+        fc.setDialogTitle("Salvar grafo como .poly");
+        fc.setFileFilter(new FileNameExtensionFilter("Grafos (*.poly)", "poly"));
+        fc.setSelectedFile(new File(nomeArquivo.isEmpty() ? "grafo.poly" : nomeArquivo));
+        if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+        File arquivo = fc.getSelectedFile();
+        if (!arquivo.getName().toLowerCase().endsWith(".poly"))
+            arquivo = new File(arquivo.getAbsolutePath() + ".poly");
+
+        final File destino = arquivo;
+        setStatus("Salvando " + destino.getName() + " …", COR_OK);
+
+        SwingWorker<Boolean, Void> sw = new SwingWorker<>() {
+            @Override protected Boolean doInBackground() throws Exception {
+                return salvarGrafoEmArquivo(destino);
+            }
+            @Override protected void done() {
+                try {
+                    if (get()) {
+                        nomeArquivo = destino.getName();
+                        lblArquivo.setText("<html><center>" + nomeArquivo + "</center></html>");
+                        setTitle("Grafo Visual — " + nomeArquivo);
+                        setStatus("✔  Grafo salvo em " + destino.getName(), COR_OK);
+                    }
+                } catch (Exception ex) {
+                    setStatus("Erro ao salvar: " + ex.getMessage(), COR_ERR);
+                }
+            }
+        };
+        sw.execute();
+    }
+
     private void carregarArquivo(File arquivo) {
         setStatus("Carregando " + arquivo.getName() + " …", COR_OK);
         lblArquivo.setText("Carregando…");
 
-        SwingWorker<Grafo, Void> w = new SwingWorker<>() {
-            @Override protected Grafo doInBackground() throws Exception {
-                Grafo g = new Grafo();
-                g.carregarDoArquivo(arquivo.getAbsolutePath());
-                return g;
+        SwingWorker<Boolean, Void> w = new SwingWorker<>() {
+            @Override protected Boolean doInBackground() throws Exception {
+                return carregarGrafoDeArquivo(arquivo);
             }
             @Override protected void done() {
                 try {
-                    grafo   = get();
-                    origem  = -1;
-                    caminho.clear();
-                    lblInfo.setText(" ");
-                    nomeArquivo = arquivo.getName();
-
-                    long nv = grafo.getVertices().stream().filter(v -> v != null).count();
-                    int  na = grafo.totalArestas();
-
-                    lblArquivo.setText("<html><center>" + nomeArquivo + "</center></html>");
-                    setTitle("Grafo Visual — " + nomeArquivo);
-                    setStatus(String.format("✔  %s  —  %,d vértices,  %,d arestas", nomeArquivo, nv, na), COR_OK);
-
-                    ajustarView();
-                    canvas.repaint();
+                    boolean ok = get();
+                    if (ok) {
+                        nomeArquivo = arquivo.getName();
+                        lblArquivo.setText("<html><center>" + nomeArquivo + "</center></html>");
+                        setTitle("Grafo Visual — " + nomeArquivo);
+                    } else {
+                        lblArquivo.setText("Erro ao carregar");
+                    }
                 } catch (Exception ex) {
                     lblArquivo.setText("Erro ao carregar");
                     setStatus("Erro: " + ex.getMessage(), COR_ERR);
@@ -344,6 +375,162 @@ public class GrafoVisual extends JFrame {
             }
         };
         w.execute();
+    }
+
+    /**
+     * Lê arquivo .poly no formato customizado:
+     *   # linhas de comentário (ignoradas)
+     *   // linhas de comentário (ignoradas)
+     *   *VERTICES
+     *   id x y          (uma linha por vértice)
+     *   *ARESTAS
+     *   orig dest        (uma linha por aresta — bidirecional por padrão)
+     *
+     * Estratégia de inserção de vértices:
+     *   Lemos TODOS os vértices em um Map<Integer,double[]> primeiro,
+     *   depois os inserimos em ordem de id crescente. Isso garante que
+     *   o id_interno atribuído por adicionarVertice() coincide com o id
+     *   do arquivo sem depender de "preencher slots" com nulls.
+     */
+    private boolean carregarGrafoDeArquivo(File arquivo) {
+        // Coleta de dados brutos do arquivo
+        TreeMap<Integer, double[]> mapaVertices = new TreeMap<>();
+        ArrayList<int[]>           listaArestas = new ArrayList<>();
+        String secao = null;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(arquivo))) {
+            String linha;
+            while ((linha = br.readLine()) != null) {
+                linha = linha.trim();
+
+                // Ignora linhas em branco e comentários
+                if (linha.isEmpty() || linha.startsWith("#") || linha.startsWith("//"))
+                    continue;
+
+                // Marcadores de seção
+                if (linha.equalsIgnoreCase("*VERTICES")) { secao = "V"; continue; }
+                if (linha.equalsIgnoreCase("*ARESTAS"))  { secao = "A"; continue; }
+                if (secao == null) continue;
+
+                String[] p = linha.split("\\s+");
+
+                if (secao.equals("V")) {
+                    if (p.length < 3) {
+                        setStatus("Linha de vértice inválida: " + linha, COR_ERR);
+                        return false;
+                    }
+                    int    id = Integer.parseInt(p[0]);
+                    double x  = Double.parseDouble(p[1].replace(',', '.'));
+                    double y  = Double.parseDouble(p[2].replace(',', '.'));
+                    mapaVertices.put(id, new double[]{x, y});
+
+                } else { // "A"
+                    if (p.length < 2) {
+                        setStatus("Linha de aresta inválida: " + linha, COR_ERR);
+                        return false;
+                    }
+                    int orig = Integer.parseInt(p[0]);
+                    int dest = Integer.parseInt(p[1]);
+                    listaArestas.add(new int[]{orig, dest});
+                }
+            }
+        } catch (NumberFormatException ex) {
+            setStatus("Número inválido no arquivo: " + ex.getMessage(), COR_ERR);
+            return false;
+        } catch (IOException ex) {
+            setStatus("Erro de leitura: " + ex.getMessage(), COR_ERR);
+            return false;
+        }
+
+        // Constrói o grafo a partir dos dados coletados
+        Grafo g = new Grafo();
+
+        // Mapeia id do arquivo → id interno do grafo
+        HashMap<Integer, Integer> idMap = new HashMap<>();
+        for (Map.Entry<Integer, double[]> e : mapaVertices.entrySet()) {
+            int    idArquivo = e.getKey();
+            double x         = e.getValue()[0];
+            double y         = e.getValue()[1];
+            int    idInterno = g.adicionarVertice(x, y);
+            idMap.put(idArquivo, idInterno);
+        }
+
+        for (int[] ar : listaArestas) {
+            Integer u = idMap.get(ar[0]);
+            Integer v = idMap.get(ar[1]);
+            if (u == null || v == null) {
+                setStatus("Aresta com id inexistente: " + ar[0] + " -> " + ar[1], COR_ERR);
+                return false;
+            }
+            g.adicionarAresta(u, v, true);
+        }
+
+        // Atualiza o estado da aplicação
+        grafo = g;
+        origem = -1;
+        caminho.clear();
+        lblInfo.setText(" ");
+
+        long nv = grafo.getVertices().stream().filter(vt -> vt != null).count();
+        int  na = grafo.totalArestas();
+        setStatus(String.format("✔  %s  —  %,d vértices,  %,d arestas",
+                arquivo.getName(), nv, na), COR_OK);
+        ajustarView();
+        canvas.repaint();
+        return true;
+    }
+
+    /**
+     * Grava o grafo no formato .poly customizado.
+     * Arestas bidirecionais são salvas uma única vez (chave min_max).
+     */
+    private boolean salvarGrafoEmArquivo(File arquivo) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(arquivo))) {
+
+            long nv = grafo.getVertices().stream().filter(v -> v != null).count();
+
+            bw.write("# Grafo exportado por GrafoVisual");        bw.newLine();
+            bw.write("# Vertices: " + nv);                        bw.newLine();
+            bw.write("# Arestas:  " + grafo.totalArestas());      bw.newLine();
+            bw.newLine();
+
+            // ── Vértices ─────────────────────────────────────────────────────
+            bw.write("*VERTICES"); bw.newLine();
+            for (Vertice v : grafo.getVertices()) {
+                if (v == null) continue;
+                bw.write(String.format(Locale.US, "%d %.6f %.6f",
+                        v.id_interno, v.x, v.y));
+                bw.newLine();
+            }
+            bw.newLine();
+
+            // ── Arestas — salva cada par lógico apenas uma vez ────────────────
+            bw.write("*ARESTAS"); bw.newLine();
+            Set<String> jaEscritas = new HashSet<>();
+            List<List<Aresta>> adj = (List<List<Aresta>>) grafo.getAd();
+
+            for (int u = 0; u < adj.size(); u++) {
+                if (grafo.getVertice(u) == null) continue;
+                for (Aresta a : adj.get(u)) {
+                    if (grafo.getVertice(a.dest) == null) continue;
+
+                    // Chave canônica: menor id sempre primeiro
+                    String chave = Math.min(u, a.dest) + "_" + Math.max(u, a.dest);
+                    if (jaEscritas.contains(chave)) continue;
+                    jaEscritas.add(chave);
+
+                    bw.write(u + " " + a.dest);
+                    bw.newLine();
+                }
+            }
+
+            bw.flush();
+            return true;
+
+        } catch (IOException ex) {
+            setStatus("Erro ao salvar: " + ex.getMessage(), COR_ERR);
+            return false;
+        }
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -473,7 +660,7 @@ public class GrafoVisual extends JFrame {
                 @Override public void mousePressed(MouseEvent e) {
                     // Pan: botão do meio ou Ctrl+esquerdo
                     if (SwingUtilities.isMiddleMouseButton(e) ||
-                       (SwingUtilities.isLeftMouseButton(e) && e.isControlDown())) {
+                            (SwingUtilities.isLeftMouseButton(e) && e.isControlDown())) {
                         panAtivo = true;
                         panX0 = e.getX(); panY0 = e.getY();
                         offX0 = offX;     offY0 = offY;
@@ -591,20 +778,20 @@ public class GrafoVisual extends JFrame {
                                             caminho = r.caminho;
                                             // RF07: custo total, saltos, nos explorados e tempo
                                             String info = String.format(
-                                                "<html><div style='font-family:monospace;line-height:1.9'>" +
-                                                "Custo total:&nbsp;&nbsp;<b>%.2f</b><br>" +
-                                                "Saltos:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>%d</b><br>" +
-                                                "Nos explorados: <b>%d</b><br>" +
-                                                "Tempo:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>%d ms</b>" +
-                                                "</div></html>",
-                                                r.distanciaTotal, r.caminho.size() - 1,
-                                                r.nosExplorados, r.tempoMs);
+                                                    "<html><div style='font-family:monospace;line-height:1.9'>" +
+                                                            "Custo total:&nbsp;&nbsp;<b>%.2f</b><br>" +
+                                                            "Saltos:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>%d</b><br>" +
+                                                            "Nos explorados: <b>%d</b><br>" +
+                                                            "Tempo:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>%d ms</b>" +
+                                                            "</div></html>",
+                                                    r.distanciaTotal, r.caminho.size() - 1,
+                                                    r.nosExplorados, r.tempoMs);
                                             lblInfo.setText(info);
                                             lblInfo.setForeground(COR_OK);
                                             setStatus(String.format(
-                                                "OK  %d -> %d | custo=%.2f | %d nos explorados | %d ms",
-                                                orig0, dest, r.distanciaTotal,
-                                                r.nosExplorados, r.tempoMs), COR_OK);
+                                                    "OK  %d -> %d | custo=%.2f | %d nos explorados | %d ms",
+                                                    orig0, dest, r.distanciaTotal,
+                                                    r.nosExplorados, r.tempoMs), COR_OK);
                                         } else {
                                             caminho.clear();
                                             lblInfo.setText("<html><center><b>Sem caminho</b></center></html>");
@@ -751,15 +938,15 @@ public class GrafoVisual extends JFrame {
 
                 // Corpo
                 Color fill = noCam    ? COR_CAMINHO_FILL
-                           : ehOrigem ? COR_ORIGEM.darker()
-                           : COR_VERTICE_FILL;
+                        : ehOrigem ? COR_ORIGEM.darker()
+                          : COR_VERTICE_FILL;
                 g.setColor(fill);
                 g.fillOval(cx - raio, cy - raio, raio*2, raio*2);
 
                 // Borda
                 Color bord = noCam    ? COR_ARESTA_CAMINHO
-                           : ehOrigem ? COR_ORIGEM
-                           : COR_VERTICE_BORD;
+                        : ehOrigem ? COR_ORIGEM
+                          : COR_VERTICE_BORD;
                 g.setStroke(new BasicStroke(noCam || ehOrigem ? 1.8f : 1.0f));
                 g.setColor(bord);
                 g.drawOval(cx - raio, cy - raio, raio*2, raio*2);

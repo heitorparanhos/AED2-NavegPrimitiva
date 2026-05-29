@@ -1,10 +1,12 @@
+package core;
+
 public class Vertice {
     public long id_original;
     public double lat;
     public double lon;
     public double x;
     public double y;
-    public int id_interno; 
+    public int id_interno;
 
     public Vertice() {
     }
