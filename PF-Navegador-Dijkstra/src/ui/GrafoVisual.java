@@ -63,6 +63,7 @@ public class GrafoVisual extends JFrame {
 
     // Primeiro vertice selecionado ao criar uma aresta (-1 = nenhum ainda)
     private int arestaOrigem = -1;
+    private boolean criarMaoUnica = false; // RF06: mao unica ou dupla
 
     // Transformação mundo → tela:  telaX = mundoX * escala + offX
     private double escala = 1.0;
@@ -167,6 +168,15 @@ public class GrafoVisual extends JFrame {
             canvas.repaint();
         });
         painel.add(centrado(btnModo, 185, 40));
+        painel.add(Box.createVerticalStrut(6));
+
+        JCheckBox chkMaoUnica = new JCheckBox("Mao unica");
+        chkMaoUnica.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        chkMaoUnica.setForeground(COR_TEXTO);
+        chkMaoUnica.setBackground(COR_PAINEL);
+        chkMaoUnica.setAlignmentX(Component.CENTER_ALIGNMENT);
+        chkMaoUnica.addActionListener(e -> criarMaoUnica = chkMaoUnica.isSelected());
+        painel.add(chkMaoUnica);
         painel.add(Box.createVerticalStrut(8));
 
         lblArquivo = new JLabel("Nenhum arquivo carregado");
@@ -238,6 +248,12 @@ public class GrafoVisual extends JFrame {
                 new Color(35, 50, 100), new Color(55, 80, 155));
         btnFit.addActionListener(e -> { ajustarView(); canvas.repaint(); });
         painel.add(centrado(btnFit, 185, 36));
+        painel.add(Box.createVerticalStrut(8));
+
+        JButton btnCopiar = btn("Copiar imagem",
+                new Color(60, 35, 90), new Color(90, 55, 140));
+        btnCopiar.addActionListener(e -> copiarImagemParaClipboard());
+        painel.add(centrado(btnCopiar, 185, 36));
 
         painel.add(Box.createVerticalGlue());
 
@@ -309,10 +325,20 @@ public class GrafoVisual extends JFrame {
     // ════════════════════════════════════════════════════════════════════════
     private void abrirArquivo() {
         JFileChooser fc = new JFileChooser(".");
-        fc.setDialogTitle("Selecionar arquivo .poly");
-        fc.setFileFilter(new FileNameExtensionFilter("Grafos (*.poly)", "poly"));
-        if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION)
-            carregarArquivo(fc.getSelectedFile());
+        fc.setDialogTitle("Selecionar arquivo de Grafo");
+        fc.setFileFilter(new FileNameExtensionFilter("Grafos (*.poly, *.txt)", "poly", "txt"));
+        if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File arquivo = fc.getSelectedFile();
+            if (arquivo.getName().toLowerCase().endsWith(".txt")) {
+                if (carregarGrafoTXT(arquivo)) {
+                    nomeArquivo = arquivo.getName();
+                    lblArquivo.setText("<html><center>" + nomeArquivo + "</center></html>");
+                    setTitle("Grafo Visual — " + nomeArquivo);
+                }
+            } else {
+                carregarArquivo(arquivo);
+            }
+        }
     }
 
     // ── Salvar ───────────────────────────────────────────────────────────────
@@ -393,7 +419,18 @@ public class GrafoVisual extends JFrame {
      *   do arquivo sem depender de "preencher slots" com nulls.
      */
     private boolean carregarGrafoDeArquivo(File arquivo) {
-        // Coleta de dados brutos do arquivo
+        // Detecta formato: cabecalho numerico = formato professor; "*" = formato customizado
+        try {
+            String prim = lerPrimeiraLinhaNaoVaziaDeArquivo(arquivo);
+            if (prim != null && !prim.startsWith("*")) {
+                return carregarFormatoOriginal(arquivo);
+            }
+        } catch (IOException ex) {
+            setStatus("Erro ao detectar formato: " + ex.getMessage(), COR_ERR);
+            return false;
+        }
+
+        // Formato customizado (*VERTICES / *ARESTAS)
         TreeMap<Integer, double[]> mapaVertices = new TreeMap<>();
         ArrayList<int[]>           listaArestas = new ArrayList<>();
         String secao = null;
@@ -703,10 +740,10 @@ public class GrafoVisual extends JFrame {
                             } else if (v == arestaOrigem) {
                                 setStatus("Selecione um vertice diferente do primeiro", COR_ERR);
                             } else {
-                                // Segundo vertice: cria a aresta de mao dupla
-                                grafo.adicionarAresta(arestaOrigem, v, true);
-                                setStatus("Aresta criada entre " + arestaOrigem
-                                        + " e " + v, COR_OK);
+                                // RF06: mao unica ou dupla conforme checkbox
+                                grafo.adicionarAresta(arestaOrigem, v, !criarMaoUnica);
+                                setStatus("Aresta " + (criarMaoUnica ? "mao unica" : "mao dupla")
+                                        + " criada entre " + arestaOrigem + " e " + v, COR_OK);
                                 arestaOrigem = -1;
                             }
                             repaint();
@@ -895,7 +932,23 @@ public class GrafoVisual extends JFrame {
                         g.setColor(new Color(55, 85, 170, alpha));
                         g.setStroke(new BasicStroke(espessuraAresta));
                     }
-                    g.drawLine(ux, uy, dx, dy);
+                    final int uFinal = u;
+                    boolean ehMaoUnica = !grafo.getAdjacencia(a.dest)
+                            .stream().anyMatch(ar -> ar.dest == uFinal);
+                    desenharAresta(g, ux, uy, dx, dy, ehMaoUnica && !noCam);
+
+                    // RF02: rotulo de peso no meio da aresta (so em zoom alto)
+                    if (escala > 1.5) {
+                        String peso = String.format("%.0f", a.dist);
+                        int mx2 = (ux + dx) / 2, my2 = (uy + dy) / 2;
+                        g.setFont(new Font("Monospaced", Font.PLAIN, 9));
+                        FontMetrics fmA = g.getFontMetrics();
+                        int pw = fmA.stringWidth(peso);
+                        g.setColor(new Color(0, 0, 0, 120));
+                        g.fillRoundRect(mx2 - pw/2 - 2, my2 - 7, pw + 4, 11, 3, 3);
+                        g.setColor(new Color(180, 200, 255));
+                        g.drawString(peso, mx2 - pw/2, my2 + 2);
+                    }
                 }
             }
 
@@ -1003,6 +1056,132 @@ public class GrafoVisual extends JFrame {
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // ── RF06: desenha aresta com seta se mao unica ───────────────────────────
+    private void desenharAresta(Graphics2D g, int ux, int uy, int vx, int vy, boolean ehMaoUnica) {
+        g.drawLine(ux, uy, vx, vy);
+        if (!ehMaoUnica) return;
+
+        double ddx = vx - ux, ddy = vy - uy;
+        double len = Math.sqrt(ddx*ddx + ddy*ddy);
+        if (len < 10) return;
+
+        // Ponta da seta em 60% do segmento
+        double mx = ux + ddx * 0.6, my = uy + ddy * 0.6;
+        double ux2 = ddx/len, uy2 = ddy/len;
+        double px = -uy2, py = ux2;
+        int tam = 7;
+
+        int x1 = (int)(mx - ux2*tam + px*tam*0.5);
+        int y1 = (int)(my - uy2*tam + py*tam*0.5);
+        int x2 = (int)(mx - ux2*tam - px*tam*0.5);
+        int y2 = (int)(my - uy2*tam - py*tam*0.5);
+
+        g.fillPolygon(new int[]{(int)mx, x1, x2},
+                      new int[]{(int)my, y1, y2}, 3);
+    }
+
+    // ── Parser .txt: lista de arestas com layout circular ────────────────────
+    private boolean carregarGrafoTXT(File arquivo) {
+        setStatus("Processando arquivo TXT...", COR_OK);
+        Grafo g = new Grafo();
+        List<int[]> arestasLidas = new ArrayList<>();
+        Set<Integer> verticesUnicos = new TreeSet<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(arquivo))) {
+            String linha;
+            while ((linha = br.readLine()) != null) {
+                linha = linha.trim();
+                if (linha.isEmpty() || linha.startsWith("#") || linha.startsWith("//")) continue;
+                String[] p = linha.split("\\s+");
+                if (p.length >= 2) {
+                    int u = Integer.parseInt(p[0]);
+                    int v = Integer.parseInt(p[1]);
+                    verticesUnicos.add(u); verticesUnicos.add(v);
+                    arestasLidas.add(new int[]{u, v});
+                }
+            }
+        } catch (Exception ex) {
+            setStatus("Erro na leitura do TXT: " + ex.getMessage(), COR_ERR);
+            return false;
+        }
+        if (verticesUnicos.isEmpty()) {
+            setStatus("O arquivo TXT nao contem arestas validas.", COR_ERR);
+            return false;
+        }
+        int n = verticesUnicos.size();
+        double raioD = Math.max(80, n * 12);
+        double passo = (2 * Math.PI) / n;
+        int idx = 0;
+        HashMap<Integer, Integer> mapaIds = new HashMap<>();
+        for (int idTxt : verticesUnicos) {
+            double x = raioD * Math.cos(idx * passo);
+            double y = raioD * Math.sin(idx * passo);
+            mapaIds.put(idTxt, g.adicionarVertice(x, y));
+            idx++;
+        }
+        for (int[] ar : arestasLidas) {
+            g.adicionarAresta(mapaIds.get(ar[0]), mapaIds.get(ar[1]), true);
+        }
+        grafo = g; origem = -1; caminho.clear(); lblInfo.setText(" ");
+        long nv = grafo.getVertices().stream().filter(vt -> vt != null).count();
+        setStatus(String.format("\u2714  %s  \u2014  %,d v\u00e9rtices,  %,d arestas",
+                arquivo.getName(), nv, grafo.totalArestas()), COR_OK);
+        ajustarView(); canvas.repaint();
+        return true;
+    }
+
+    // ── Detecta formato pela primeira linha nao vazia ─────────────────────────
+    private String lerPrimeiraLinhaNaoVaziaDeArquivo(File arquivo) throws IOException {
+        try (BufferedReader br = new BufferedReader(new FileReader(arquivo))) {
+            String linha;
+            while ((linha = br.readLine()) != null) {
+                linha = linha.trim();
+                if (!linha.isEmpty() && !linha.startsWith("#") && !linha.startsWith("//"))
+                    return linha;
+            }
+        }
+        return null;
+    }
+
+    // ── Parser formato original do professor (cabecalho numerico) ─────────────
+    private boolean carregarFormatoOriginal(File arquivo) {
+        try {
+            Grafo g = new Grafo();
+            g.carregarDoArquivo(arquivo.getAbsolutePath());
+            grafo = g; origem = -1; caminho.clear(); lblInfo.setText(" ");
+            long nv = grafo.getVertices().stream().filter(vt -> vt != null).count();
+            setStatus(String.format("\u2714  %s  \u2014  %,d v\u00e9rtices,  %,d arestas",
+                    arquivo.getName(), nv, grafo.totalArestas()), COR_OK);
+            ajustarView(); canvas.repaint();
+            return true;
+        } catch (IOException ex) {
+            setStatus("Erro ao carregar: " + ex.getMessage(), COR_ERR);
+            return false;
+        }
+    }
+
+    // ── RF08: copia imagem do canvas para area de transferencia ──────────────
+    private void copiarImagemParaClipboard() {
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(
+                canvas.getWidth(), canvas.getHeight(),
+                java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        canvas.paint(img.getGraphics());
+        java.awt.datatransfer.Transferable t = new java.awt.datatransfer.Transferable() {
+            public java.awt.datatransfer.DataFlavor[] getTransferDataFlavors() {
+                return new java.awt.datatransfer.DataFlavor[]{
+                    java.awt.datatransfer.DataFlavor.imageFlavor };
+            }
+            public boolean isDataFlavorSupported(java.awt.datatransfer.DataFlavor f) {
+                return java.awt.datatransfer.DataFlavor.imageFlavor.equals(f);
+            }
+            public Object getTransferData(java.awt.datatransfer.DataFlavor f) {
+                return img;
+            }
+        };
+        java.awt.Toolkit.getDefaultToolkit()
+                .getSystemClipboard().setContents(t, null);
+        setStatus("Imagem copiada para a area de transferencia", COR_OK);
+    }
+
     public static void main(String[] args) {
         String poly = args.length >= 1 ? args[0] : null;
         SwingUtilities.invokeLater(() -> new GrafoVisual(poly));
