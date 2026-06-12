@@ -10,6 +10,11 @@ import java.io.*;
 import java.util.*;
 import java.util.List;
 import java.util.Locale;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 /**
  * GrafoVisual — Visualizador de grafos com Dijkstra interativo.
@@ -120,22 +125,22 @@ public class GrafoVisual extends JFrame {
         sub.setAlignmentX(Component.CENTER_ALIGNMENT);
         painel.add(sub);
 
-        painel.add(separador(24, 12));
+        painel.add(separador(20, 12));
 
         // ── Arquivo ──────────────────────────────────────────────────────
         painel.add(secao("ARQUIVO"));
-        painel.add(Box.createVerticalStrut(10));
+        painel.add(Box.createVerticalStrut(8));
 
-        JButton btnAbrir = btn("📂  Abrir arquivo .poly",
+        JButton btnAbrir = btn("📂  Abrir arquivo",
                 new Color(28, 68, 48), new Color(42, 105, 72));
         btnAbrir.addActionListener(e -> abrirArquivo());
         painel.add(centrado(btnAbrir, 185, 40));
         painel.add(Box.createVerticalStrut(8));
 
         // ── Modo de interacao (RF05) ─────────────────────────────────────
-        painel.add(Box.createVerticalStrut(14));
+        painel.add(Box.createVerticalStrut(12));
         painel.add(secao("MODO"));
-        painel.add(Box.createVerticalStrut(10));
+        painel.add(Box.createVerticalStrut(8));
 
         JButton btnModo = btn("Navegar",
                 new Color(35, 55, 110), new Color(55, 85, 165));
@@ -168,38 +173,50 @@ public class GrafoVisual extends JFrame {
             canvas.repaint();
         });
         painel.add(centrado(btnModo, 185, 40));
-        painel.add(Box.createVerticalStrut(6));
+        painel.add(Box.createVerticalStrut(4));
 
-        JCheckBox chkMaoUnica = new JCheckBox("Mao unica");
+        JCheckBox chkMaoUnica = new JCheckBox("Mão única");
         chkMaoUnica.setFont(new Font("SansSerif", Font.PLAIN, 10));
         chkMaoUnica.setForeground(COR_TEXTO);
         chkMaoUnica.setBackground(COR_PAINEL);
-        chkMaoUnica.setAlignmentX(Component.CENTER_ALIGNMENT);
         chkMaoUnica.addActionListener(e -> criarMaoUnica = chkMaoUnica.isSelected());
-        painel.add(chkMaoUnica);
+        JPanel chkRow = new JPanel(new BorderLayout());
+        chkRow.setOpaque(false);
+        chkRow.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 8));
+        chkRow.setAlignmentX(Component.CENTER_ALIGNMENT);
+        chkRow.add(chkMaoUnica, BorderLayout.WEST);
+        painel.add(chkRow);
         painel.add(Box.createVerticalStrut(8));
 
         lblArquivo = new JLabel("Nenhum arquivo carregado");
-        lblArquivo.setFont(new Font("SansSerif", Font.PLAIN, 10));
-        lblArquivo.setForeground(new Color(70, 90, 140));
-        lblArquivo.setAlignmentX(Component.CENTER_ALIGNMENT);
-        painel.add(lblArquivo);
+        lblArquivo.setFont(new Font("SansSerif", Font.ITALIC, 10));
+        lblArquivo.setForeground(new Color(55, 72, 115));
+        JPanel arquivoRow = new JPanel(new BorderLayout());
+        arquivoRow.setOpaque(false);
+        arquivoRow.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 8));
+        arquivoRow.setAlignmentX(Component.CENTER_ALIGNMENT);
+        arquivoRow.add(lblArquivo, BorderLayout.CENTER);
+        painel.add(arquivoRow);
 
-        painel.add(separador(22, 10));
+        painel.add(separador(20, 8));
 
         // ── Dijkstra ─────────────────────────────────────────────────────
         painel.add(secao("DIJKSTRA"));
-        painel.add(Box.createVerticalStrut(10));
+        painel.add(Box.createVerticalStrut(8));
 
         JLabel instrucao = new JLabel(
-                "<html><div style='text-align:center;line-height:1.7'>" +
+                "<html><div style='line-height:1.7'>" +
                         "1º clique — vértice de <b>origem</b><br>" +
                         "2º clique — vértice de <b>destino</b>" +
                         "</div></html>");
         instrucao.setFont(new Font("SansSerif", Font.PLAIN, 11));
         instrucao.setForeground(new Color(120, 145, 200));
-        instrucao.setAlignmentX(Component.CENTER_ALIGNMENT);
-        painel.add(instrucao);
+        JPanel instrucaoRow = new JPanel(new BorderLayout());
+        instrucaoRow.setOpaque(false);
+        instrucaoRow.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 8));
+        instrucaoRow.setAlignmentX(Component.CENTER_ALIGNMENT);
+        instrucaoRow.add(instrucao, BorderLayout.CENTER);
+        painel.add(instrucaoRow);
         painel.add(Box.createVerticalStrut(10));
 
         JButton btnLimparCam = btn("✖  Limpar caminho",
@@ -213,7 +230,7 @@ public class GrafoVisual extends JFrame {
         });
         painel.add(centrado(btnLimparCam, 185, 36));
 
-        painel.add(separador(22, 10));
+        painel.add(separador(20, 8));
 
         // ── Resultado Dijkstra ────────────────────────────────────────────
         painel.add(secao("RESULTADO"));
@@ -222,26 +239,33 @@ public class GrafoVisual extends JFrame {
         lblInfo = new JLabel(" ");
         lblInfo.setFont(new Font("Monospaced", Font.PLAIN, 10));
         lblInfo.setForeground(COR_OK);
-        lblInfo.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblInfo.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-        painel.add(lblInfo);
+        JPanel infoRow = new JPanel(new BorderLayout());
+        infoRow.setOpaque(false);
+        infoRow.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 8));
+        infoRow.setAlignmentX(Component.CENTER_ALIGNMENT);
+        infoRow.add(lblInfo, BorderLayout.CENTER);
+        painel.add(infoRow);
 
-        painel.add(separador(22, 10));
+        painel.add(separador(20, 8));
 
         // ── Navegação ────────────────────────────────────────────────────
         painel.add(secao("NAVEGAÇÃO"));
         painel.add(Box.createVerticalStrut(8));
 
         JLabel nav = new JLabel(
-                "<html><div style='text-align:center;line-height:1.8'>" +
-                        "🖱 Scroll — zoom<br>" +
-                        "🖱 Meio / Ctrl+drag — pan<br>" +
-                        "🔍 Duplo clique — ajustar tela" +
-                        "</div></html>");
+                "<html><table cellpadding='0' cellspacing='4'>" +
+                        "<tr><td>🖱</td><td>&nbsp;Scroll — zoom</td></tr>" +
+                        "<tr><td>🖱</td><td>&nbsp;Meio / Ctrl+drag — pan</td></tr>" +
+                        "<tr><td>🔍</td><td>&nbsp;Duplo clique — ajustar tela</td></tr>" +
+                        "</table></html>");
         nav.setFont(new Font("SansSerif", Font.PLAIN, 10));
         nav.setForeground(new Color(65, 85, 135));
-        nav.setAlignmentX(Component.CENTER_ALIGNMENT);
-        painel.add(nav);
+        JPanel navRow = new JPanel(new BorderLayout());
+        navRow.setOpaque(false);
+        navRow.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 8));
+        navRow.setAlignmentX(Component.CENTER_ALIGNMENT);
+        navRow.add(nav, BorderLayout.WEST);
+        painel.add(navRow);
         painel.add(Box.createVerticalStrut(10));
 
         JButton btnFit = btn("🔍  Ajustar à tela",
@@ -250,7 +274,7 @@ public class GrafoVisual extends JFrame {
         painel.add(centrado(btnFit, 185, 36));
         painel.add(Box.createVerticalStrut(8));
 
-        JButton btnCopiar = btn("Copiar imagem",
+        JButton btnCopiar = btn("📋  Copiar imagem",
                 new Color(60, 35, 90), new Color(90, 55, 140));
         btnCopiar.addActionListener(e -> copiarImagemParaClipboard());
         painel.add(centrado(btnCopiar, 185, 36));
@@ -277,12 +301,16 @@ public class GrafoVisual extends JFrame {
     }
 
     // ── Helpers de UI ───────────────────────────────────────────────────────
-    private JLabel secao(String t) {
+    private Component secao(String t) {
         JLabel l = new JLabel(t);
         l.setFont(new Font("SansSerif", Font.BOLD, 9));
-        l.setForeground(new Color(60, 80, 135));
-        l.setAlignmentX(Component.CENTER_ALIGNMENT);
-        return l;
+        l.setForeground(new Color(75, 100, 165));
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        row.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 8));
+        row.setAlignmentX(Component.CENTER_ALIGNMENT);
+        row.add(l, BorderLayout.WEST);
+        return row;
     }
 
     /** Linha divisória com espaço acima e abaixo. */
@@ -306,6 +334,7 @@ public class GrafoVisual extends JFrame {
         b.setBackground(normal);
         b.setFocusPainted(false);
         b.setBorderPainted(false);
+        b.setBorder(BorderFactory.createEmptyBorder(7, 12, 7, 12));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) { b.setBackground(hover); }
@@ -315,9 +344,14 @@ public class GrafoVisual extends JFrame {
     }
 
     private Component centrado(JComponent c, int maxW, int maxH) {
-        c.setAlignmentX(Component.CENTER_ALIGNMENT);
+        c.setPreferredSize(new Dimension(maxW, maxH));
         c.setMaximumSize(new Dimension(maxW, maxH));
-        return c;
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        row.setOpaque(false);
+        row.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 15));
+        row.setAlignmentX(Component.CENTER_ALIGNMENT);
+        row.add(c);
+        return row;
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -326,7 +360,7 @@ public class GrafoVisual extends JFrame {
     private void abrirArquivo() {
         JFileChooser fc = new JFileChooser(".");
         fc.setDialogTitle("Selecionar arquivo de Grafo");
-        fc.setFileFilter(new FileNameExtensionFilter("Grafos (*.poly, *.txt)", "poly", "txt"));
+        fc.setFileFilter(new FileNameExtensionFilter("Grafos (*.poly, *.txt, *.osm)", "poly", "txt", "osm"));
         if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File arquivo = fc.getSelectedFile();
             if (arquivo.getName().toLowerCase().endsWith(".txt")) {
@@ -419,6 +453,9 @@ public class GrafoVisual extends JFrame {
      *   do arquivo sem depender de "preencher slots" com nulls.
      */
     private boolean carregarGrafoDeArquivo(File arquivo) {
+        if (arquivo.getName().toLowerCase().endsWith(".osm")) {
+            return carregarOsm(arquivo);
+        }
         // Detecta formato: cabecalho numerico = formato professor; "*" = formato customizado
         try {
             String prim = lerPrimeiraLinhaNaoVaziaDeArquivo(arquivo);
@@ -1157,6 +1194,115 @@ public class GrafoVisual extends JFrame {
             setStatus("Erro ao carregar: " + ex.getMessage(), COR_ERR);
             return false;
         }
+    }
+
+    // ── RF01: parser OpenStreetMap (.osm) ────────────────────────────────────
+    private boolean carregarOsm(File arquivo) {
+        try {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            DocumentBuilder db = dbf.newDocumentBuilder();
+            Document doc = db.parse(arquivo);
+
+            HashMap<Long, double[]> nodesMap = new HashMap<>();
+            NodeList nodeList = doc.getElementsByTagName("node");
+            for (int i = 0; i < nodeList.getLength(); i++) {
+                Element el = (Element) nodeList.item(i);
+                long   id  = Long.parseLong(el.getAttribute("id"));
+                double lat = Double.parseDouble(el.getAttribute("lat"));
+                double lon = Double.parseDouble(el.getAttribute("lon"));
+                nodesMap.put(id, new double[]{lat, lon});
+            }
+
+            ArrayList<long[]>  wayRefs   = new ArrayList<>();
+            ArrayList<Boolean> wayOneway = new ArrayList<>();
+            HashMap<Long, Integer> nodeRefCount = new HashMap<>();
+
+            NodeList ways = doc.getElementsByTagName("way");
+            for (int i = 0; i < ways.getLength(); i++) {
+                Element way = (Element) ways.item(i);
+                boolean isHighway = false;
+                boolean oneway    = false;
+                NodeList tags = way.getElementsByTagName("tag");
+                for (int j = 0; j < tags.getLength(); j++) {
+                    Element tag = (Element) tags.item(j);
+                    String k  = tag.getAttribute("k");
+                    String vv = tag.getAttribute("v");
+                    if ("highway".equals(k)) isHighway = true;
+                    if ("oneway".equals(k) && "yes".equals(vv)) oneway = true;
+                }
+                if (!isHighway) continue;
+
+                NodeList nds = way.getElementsByTagName("nd");
+                long[] refs = new long[nds.getLength()];
+                for (int j = 0; j < nds.getLength(); j++) {
+                    refs[j] = Long.parseLong(((Element) nds.item(j)).getAttribute("ref"));
+                    nodeRefCount.merge(refs[j], 1, Integer::sum);
+                }
+                wayRefs.add(refs);
+                wayOneway.add(oneway);
+            }
+
+            Grafo g = new Grafo();
+            HashMap<Long, Integer> idMap = new HashMap<>();
+
+            for (int w = 0; w < wayRefs.size(); w++) {
+                long[]  refs   = wayRefs.get(w);
+                boolean oneway = wayOneway.get(w);
+                if (refs.length == 0) continue;
+
+                adicionarNoSeAusente(refs[0], g, idMap, nodesMap);
+                long   segInicio = refs[0];
+                double accDist   = 0;
+
+                for (int j = 1; j < refs.length; j++) {
+                    double[] c1 = nodesMap.get(refs[j - 1]);
+                    double[] c2 = nodesMap.get(refs[j]);
+                    if (c1 != null && c2 != null)
+                        accDist += haversine(c1[0], c1[1], c2[0], c2[1]);
+
+                    boolean isUltimo     = (j == refs.length - 1);
+                    boolean isCruzamento = nodeRefCount.getOrDefault(refs[j], 0) >= 2;
+
+                    if (isUltimo || isCruzamento) {
+                        adicionarNoSeAusente(refs[j], g, idMap, nodesMap);
+                        Integer u = idMap.get(segInicio);
+                        Integer v = idMap.get(refs[j]);
+                        if (u != null && v != null && accDist > 0)
+                            g.adicionarAresta(u, v, accDist, !oneway);
+                        segInicio = refs[j];
+                        accDist   = 0;
+                    }
+                }
+            }
+
+            grafo = g; origem = -1; caminho.clear(); lblInfo.setText(" ");
+            long nv = grafo.getVertices().stream().filter(vt -> vt != null).count();
+            setStatus(String.format("✔  %s  —  %,d vértices,  %,d arestas",
+                    arquivo.getName(), nv, grafo.totalArestas()), COR_OK);
+            ajustarView(); canvas.repaint();
+            return true;
+        } catch (Exception ex) {
+            setStatus("Erro ao carregar OSM: " + ex.getMessage(), COR_ERR);
+            return false;
+        }
+    }
+
+    private void adicionarNoSeAusente(long osmId, Grafo g,
+            HashMap<Long, Integer> idMap, HashMap<Long, double[]> nodesMap) {
+        if (idMap.containsKey(osmId)) return;
+        double[] c = nodesMap.get(osmId);
+        if (c == null) return;
+        idMap.put(osmId, g.adicionarVerticeGeo(osmId, c[0], c[1]));
+    }
+
+    private static double haversine(double lat1, double lon1, double lat2, double lon2) {
+        double R    = 6_371_000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a    = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                    + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                    * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     // ── RF08: copia imagem do canvas para area de transferencia ──────────────

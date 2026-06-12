@@ -138,13 +138,22 @@ public class Grafo {
 
     // ─── Edição dinâmica (RF05 / RF06) ───────────────────────────────────────
 
-    /**
-     * Cria um novo vértice com coordenadas (x, y) e retorna seu id_interno.
-     * O id é atribuído sequencialmente (= tamanho atual da lista).
-     */
     public int adicionarVertice(double x, double y) {
         int id = vertices.size();
         vertices.add(new Vertice(id, x, y));
+        adjacencia.add(new ArrayList<>());
+        return id;
+    }
+
+    public int adicionarVerticeGeo(long idOriginal, double lat, double lon) {
+        int id = vertices.size();
+        double x = lon * Math.cos(Math.toRadians(lat));
+        double y = -lat;
+        Vertice v = new Vertice(id, x, y);
+        v.id_original = idOriginal;
+        v.lat = lat;
+        v.lon = lon;
+        vertices.add(v);
         adjacencia.add(new ArrayList<>());
         return id;
     }
@@ -168,25 +177,18 @@ public class Grafo {
         }
     }
 
-    /**
-     * Adiciona uma aresta de orig para dest com peso euclidiano.
-     * Se maoDupla == true, insere também a direção inversa.
-     * Incrementa totalArestas em 1 (aresta lógica), independente de maoDupla.
-     */
     public void adicionarAresta(int orig, int dest, boolean maoDupla) {
         if (!verticeValido(orig) || !verticeValido(dest)) return;
-
         double dist = calcDist(
                 vertices.get(orig).x, vertices.get(orig).y,
-                vertices.get(dest).x, vertices.get(dest).y
-        );
+                vertices.get(dest).x, vertices.get(dest).y);
+        adicionarAresta(orig, dest, dist, maoDupla);
+    }
 
-        adjacencia.get(orig).add(new Aresta(orig, dest, dist));
-
-        if (maoDupla) {
-            adjacencia.get(dest).add(new Aresta(dest, orig, dist));
-        }
-        // totalArestas() recomputa sob demanda — nenhum contador para atualizar
+    public void adicionarAresta(int orig, int dest, double peso, boolean maoDupla) {
+        if (!verticeValido(orig) || !verticeValido(dest)) return;
+        adjacencia.get(orig).add(new Aresta(orig, dest, peso));
+        if (maoDupla) adjacencia.get(dest).add(new Aresta(dest, orig, peso));
     }
 
     /**
