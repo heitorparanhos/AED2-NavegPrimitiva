@@ -5,7 +5,7 @@ Prof. André Luiz Moura
 
 ---
 
-## Integrantes
+## Integrantes totais
 - Heitor Paranhos Carvalho
 - Lucas Santana Dalla Dea
 - Matheus Gomes Rodrigues
