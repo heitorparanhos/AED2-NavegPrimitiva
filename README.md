@@ -6,7 +6,7 @@ Prof. André Luiz Moura
 ---
 
 ## Integrantes
-- Heitor Paranhos
+- Heitor Paranhos Carvalho
 - Lucas Santana Dalla Dea
 - Matheus Gomes Rodrigues
 - Vitor Fernandes de Paula
