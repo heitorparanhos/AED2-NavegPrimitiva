@@ -10,6 +10,7 @@ Prof. André Luiz Moura
 - Lucas Santana Dalla Dea
 - Matheus Gomes Rodrigues
 - Vitor Fernandes de Paula
+- User test
 
 ---
 
